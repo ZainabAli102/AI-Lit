@@ -34,6 +34,7 @@ export type Database = {
           starts_on?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       activities: {
         Row: {
@@ -69,6 +70,7 @@ export type Database = {
           title?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       assignment_rubrics: {
         Row: {
@@ -86,6 +88,7 @@ export type Database = {
           created_at?: string;
           rubric_id?: string;
         };
+        Relationships: [];
       };
       assignment_submissions: {
         Row: {
@@ -124,6 +127,7 @@ export type Database = {
           submitted_at?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       assignments: {
         Row: {
@@ -165,6 +169,7 @@ export type Database = {
           title?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       class_lesson_progress: {
         Row: {
@@ -200,6 +205,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["progress_status"];
           updated_at?: string;
         };
+        Relationships: [];
       };
       class_lesson_assessments: {
         Row: {
@@ -244,6 +250,7 @@ export type Database = {
           teacher_notes?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       classes: {
         Row: {
@@ -285,6 +292,7 @@ export type Database = {
           school_id?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       curriculum_units: {
         Row: {
@@ -317,6 +325,7 @@ export type Database = {
           title?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       lessons: {
         Row: {
@@ -355,6 +364,7 @@ export type Database = {
           title?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       lesson_resources: {
         Row: {
@@ -390,6 +400,7 @@ export type Database = {
           title?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       profiles: {
         Row: {
@@ -425,6 +436,7 @@ export type Database = {
           school_id?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       rubric_criteria: {
         Row: {
@@ -457,6 +469,7 @@ export type Database = {
           sequence_order?: number;
           updated_at?: string;
         };
+        Relationships: [];
       };
       rubrics: {
         Row: {
@@ -486,6 +499,7 @@ export type Database = {
           title?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       schools: {
         Row: {
@@ -515,6 +529,7 @@ export type Database = {
           status?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       student_class_enrollments: {
         Row: {
@@ -538,6 +553,7 @@ export type Database = {
           status?: string;
           student_profile_id?: string;
         };
+        Relationships: [];
       };
       student_lesson_progress: {
         Row: {
@@ -573,6 +589,7 @@ export type Database = {
           student_profile_id?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       student_profiles: {
         Row: {
@@ -599,6 +616,7 @@ export type Database = {
           school_id?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       submission_feedback: {
         Row: {
@@ -634,6 +652,7 @@ export type Database = {
           teacher_profile_id?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       submission_rubric_scores: {
         Row: {
@@ -663,6 +682,7 @@ export type Database = {
           score?: number;
           updated_at?: string;
         };
+        Relationships: [];
       };
       teacher_class_assignments: {
         Row: {
@@ -686,6 +706,7 @@ export type Database = {
           id?: string;
           teacher_profile_id?: string;
         };
+        Relationships: [];
       };
       teacher_profiles: {
         Row: {
@@ -709,6 +730,7 @@ export type Database = {
           supports_k_to_6?: boolean;
           updated_at?: string;
         };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;

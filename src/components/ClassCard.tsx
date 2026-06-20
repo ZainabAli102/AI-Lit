@@ -1,10 +1,17 @@
 import { BookOpen, MonitorUp, UsersRound } from "lucide-react";
-import { DELIVERY_MODE_DESCRIPTIONS, DELIVERY_MODE_LABELS, GRADE_BAND_LABELS } from "@/lib/constants";
-import type { SampleClass } from "@/lib/sample-data";
+import { DELIVERY_MODE_DESCRIPTIONS, DELIVERY_MODE_LABELS, GRADE_BAND_LABELS, type DeliveryMode, type GradeBand } from "@/lib/constants";
 import { Button } from "@/components/Button";
 
 type ClassCardProps = {
-  classInfo: SampleClass;
+  classInfo: {
+    id: string;
+    name: string;
+    gradeBand: GradeBand;
+    deliveryMode: DeliveryMode;
+    teacherName: string;
+    activeLessons: number;
+    progressLabel?: string;
+  };
 };
 
 export function ClassCard({ classInfo }: ClassCardProps) {
@@ -39,14 +46,14 @@ export function ClassCard({ classInfo }: ClassCardProps) {
           <BookOpen aria-hidden="true" className="h-4 w-4 text-[#116466]" />
           <div>
             <dt className="sr-only">Lessons</dt>
-            <dd>{classInfo.activeLessons} active lesson placeholders</dd>
+            <dd>{classInfo.activeLessons} available lessons</dd>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <MonitorUp aria-hidden="true" className="h-4 w-4 text-[#116466]" />
           <div>
             <dt className="sr-only">Progress</dt>
-            <dd>{classInfo.progressLabel}</dd>
+            <dd>{classInfo.progressLabel ?? "Class-level progress"}</dd>
           </div>
         </div>
       </dl>

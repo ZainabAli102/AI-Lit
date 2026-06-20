@@ -4,9 +4,11 @@ import { ClassCard } from "@/components/ClassCard";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Layout } from "@/components/Layout";
 import { PageHeader } from "@/components/PageHeader";
-import { sampleClasses } from "@/lib/sample-data";
+import { getTeacherClassesForMvp } from "@/lib/teacher-led-data";
 
-export default function TeacherPage() {
+export default async function TeacherPage() {
+  const classes = await getTeacherClassesForMvp();
+
   return (
     <Layout>
       <PageHeader
@@ -20,7 +22,7 @@ export default function TeacherPage() {
         title="Teacher Dashboard"
       />
       <div className="grid gap-5 lg:grid-cols-2">
-        {sampleClasses.map((classInfo) => (
+        {classes.map((classInfo) => (
           <ClassCard classInfo={classInfo} key={classInfo.id} />
         ))}
       </div>

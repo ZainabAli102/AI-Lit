@@ -253,8 +253,7 @@ create table public.lesson_resources (
   content text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint lesson_resources_title_not_blank check (length(trim(title)) > 0),
-  constraint lesson_resources_has_content_or_file check (file_url is not null or content is not null)
+  constraint lesson_resources_title_not_blank check (length(trim(title)) > 0)
 );
 
 create table public.assignments (
@@ -457,6 +456,7 @@ create trigger ensure_student_lesson_progress_student_account_scope before inser
 create trigger ensure_assignments_student_account_scope before insert or update of class_id on public.assignments for each row execute function public.ensure_student_account_class_scope();
 
 comment on table public.student_profiles is 'Future Grades 7 to 12 student-account records only. K to Grade 6 teacher-led classrooms should not create student accounts.';
+comment on column public.profiles.auth_user_id is 'Future link to auth.users.id when Supabase Auth is activated. This migration does not create auth triggers or policies.';
 comment on table public.class_lesson_progress is 'Class-level progress for teacher-led K to Grade 6 delivery and high-level class tracking.';
 comment on table public.class_lesson_assessments is 'MVP 1 K to Grade 6 teacher-led class assessment records for lesson-level teacher observations.';
 comment on table public.lesson_resources is 'Lesson-attached resources for K to Grade 6 now and Grades 7 to 12 later.';

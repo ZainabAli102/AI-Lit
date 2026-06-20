@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/types";
+import type { Database } from "@/types/database";
 
-export function createSupabaseBrowserClient(): SupabaseClient<Database> | null {
+export function createSupabaseClient(): SupabaseClient<Database> | null {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -11,3 +11,5 @@ export function createSupabaseBrowserClient(): SupabaseClient<Database> | null {
 
   return createClient<Database>(supabaseUrl, supabaseAnonKey);
 }
+
+export const createSupabaseBrowserClient = createSupabaseClient;

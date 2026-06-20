@@ -33,7 +33,7 @@ const navGroups = [
     items: [
       { label: "Teacher", href: "/teacher", icon: LayoutDashboard },
       { label: "My Classes", href: "/teacher/classes", icon: GraduationCap },
-      { label: "Lesson Workspace", href: "/teacher/lessons/sample-lesson", icon: BookOpen },
+      { label: "Lesson Workspace", href: "/teacher/classes/grade-1a/lessons/ai-everyday-tools", icon: BookOpen },
       { label: "Smartboard", href: "/teacher/smartboard/sample-activity", icon: MonitorUp }
     ]
   },
