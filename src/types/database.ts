@@ -201,6 +201,50 @@ export type Database = {
           updated_at?: string;
         };
       };
+      class_lesson_assessments: {
+        Row: {
+          activity_completed: Database["public"]["Enums"]["assessment_response"];
+          class_id: string;
+          created_at: string;
+          id: string;
+          lesson_id: string;
+          objective_met: Database["public"]["Enums"]["assessment_response"];
+          overall_status: Database["public"]["Enums"]["k6_assessment_status"];
+          students_explained_thinking: Database["public"]["Enums"]["assessment_response"];
+          students_needing_support: string | null;
+          teacher_id: string;
+          teacher_notes: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          activity_completed: Database["public"]["Enums"]["assessment_response"];
+          class_id: string;
+          created_at?: string;
+          id?: string;
+          lesson_id: string;
+          objective_met: Database["public"]["Enums"]["assessment_response"];
+          overall_status?: Database["public"]["Enums"]["k6_assessment_status"];
+          students_explained_thinking: Database["public"]["Enums"]["assessment_response"];
+          students_needing_support?: string | null;
+          teacher_id: string;
+          teacher_notes?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          activity_completed?: Database["public"]["Enums"]["assessment_response"];
+          class_id?: string;
+          created_at?: string;
+          id?: string;
+          lesson_id?: string;
+          objective_met?: Database["public"]["Enums"]["assessment_response"];
+          overall_status?: Database["public"]["Enums"]["k6_assessment_status"];
+          students_explained_thinking?: Database["public"]["Enums"]["assessment_response"];
+          students_needing_support?: string | null;
+          teacher_id?: string;
+          teacher_notes?: string | null;
+          updated_at?: string;
+        };
+      };
       classes: {
         Row: {
           academic_year_id: string | null;
@@ -308,6 +352,41 @@ export type Database = {
           is_active?: boolean;
           sequence_order?: number;
           summary?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+      };
+      lesson_resources: {
+        Row: {
+          content: string | null;
+          created_at: string;
+          description: string | null;
+          file_url: string | null;
+          id: string;
+          lesson_id: string;
+          resource_type: Database["public"]["Enums"]["lesson_resource_type"];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          content?: string | null;
+          created_at?: string;
+          description?: string | null;
+          file_url?: string | null;
+          id?: string;
+          lesson_id: string;
+          resource_type: Database["public"]["Enums"]["lesson_resource_type"];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          content?: string | null;
+          created_at?: string;
+          description?: string | null;
+          file_url?: string | null;
+          id?: string;
+          lesson_id?: string;
+          resource_type?: Database["public"]["Enums"]["lesson_resource_type"];
           title?: string;
           updated_at?: string;
         };
@@ -634,6 +713,14 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      ensure_k6_class_lesson_assessment_scope: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
+      ensure_student_account_class_scope: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
       set_updated_at: {
         Args: Record<string, never>;
         Returns: unknown;
@@ -641,9 +728,21 @@ export type Database = {
     };
     Enums: {
       app_role: "connected_mena_admin" | "school_admin" | "academic_coordinator" | "teacher" | "student";
+      assessment_response: "yes" | "partly" | "no";
       assignment_status: "draft" | "published" | "archived";
       delivery_mode: "teacher_led" | "student_account" | "hybrid";
       grade_band: "k_to_6" | "grades_7_to_12";
+      k6_assessment_status: "completed" | "needs_review";
+      lesson_resource_type:
+        | "teacher_guide"
+        | "worksheet"
+        | "printable_material"
+        | "smartboard_activity"
+        | "support_activity"
+        | "extension_activity"
+        | "assessment"
+        | "rubric"
+        | "student_activity";
       progress_status: "not_started" | "in_progress" | "completed";
       submission_status: "draft" | "submitted" | "returned";
     };

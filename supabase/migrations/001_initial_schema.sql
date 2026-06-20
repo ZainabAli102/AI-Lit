@@ -41,6 +41,29 @@ create type public.submission_status as enum (
   'returned'
 );
 
+create type public.assessment_response as enum (
+  'yes',
+  'partly',
+  'no'
+);
+
+create type public.k6_assessment_status as enum (
+  'completed',
+  'needs_review'
+);
+
+create type public.lesson_resource_type as enum (
+  'teacher_guide',
+  'worksheet',
+  'printable_material',
+  'smartboard_activity',
+  'support_activity',
+  'extension_activity',
+  'assessment',
+  'rubric',
+  'student_activity'
+);
+
 create table public.schools (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -156,7 +179,7 @@ create table public.classes (
     or (grade_band = 'grades_7_to_12' and grade_level between 7 and 12)
   ),
   constraint classes_delivery_mode_matches_grade_band check (
-    (grade_band = 'k_to_6' and delivery_mode in ('teacher_led', 'hybrid'))
+    (grade_band = 'k_to_6' and delivery_mode = 'teacher_led')
     or (grade_band = 'grades_7_to_12' and delivery_mode in ('student_account', 'hybrid'))
   )
 );
@@ -192,6 +215,21 @@ create table public.class_lesson_progress (
   unique (class_id, lesson_id)
 );
 
+create table public.class_lesson_assessments (
+  id uuid primary key default gen_random_uuid(),
+  class_id uuid not null references public.classes(id) on delete cascade,
+  lesson_id uuid not null references public.lessons(id) on delete cascade,
+  teacher_id uuid not null references public.teacher_profiles(profile_id) on delete restrict,
+  objective_met public.assessment_response not null,
+  activity_completed public.assessment_response not null,
+  students_explained_thinking public.assessment_response not null,
+  students_needing_support text,
+  teacher_notes text,
+  overall_status public.k6_assessment_status not null default 'completed',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.student_lesson_progress (
   id uuid primary key default gen_random_uuid(),
   student_profile_id uuid not null references public.student_profiles(profile_id) on delete cascade,
@@ -203,6 +241,20 @@ create table public.student_lesson_progress (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (student_profile_id, class_id, lesson_id)
+);
+
+create table public.lesson_resources (
+  id uuid primary key default gen_random_uuid(),
+  lesson_id uuid not null references public.lessons(id) on delete cascade,
+  resource_type public.lesson_resource_type not null,
+  title text not null,
+  description text,
+  file_url text,
+  content text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint lesson_resources_title_not_blank check (length(trim(title)) > 0),
+  constraint lesson_resources_has_content_or_file check (file_url is not null or content is not null)
 );
 
 create table public.assignments (
@@ -297,6 +349,8 @@ create index classes_delivery_mode_idx on public.classes(delivery_mode);
 create index lessons_curriculum_unit_id_idx on public.lessons(curriculum_unit_id);
 create index activities_lesson_id_idx on public.activities(lesson_id);
 create index class_lesson_progress_class_id_idx on public.class_lesson_progress(class_id);
+create index class_lesson_assessments_class_lesson_idx on public.class_lesson_assessments(class_id, lesson_id);
+create index lesson_resources_lesson_id_type_idx on public.lesson_resources(lesson_id, resource_type);
 create index student_lesson_progress_student_profile_id_idx on public.student_lesson_progress(student_profile_id);
 create index assignments_class_id_status_idx on public.assignments(class_id, status);
 create index assignment_submissions_assignment_id_status_idx on public.assignment_submissions(assignment_id, status);
@@ -312,6 +366,71 @@ begin
 end;
 $$;
 
+create or replace function public.ensure_k6_class_lesson_assessment_scope()
+returns trigger
+language plpgsql
+as $$
+begin
+  if not exists (
+    select 1
+    from public.classes
+    where id = new.class_id
+      and grade_band = 'k_to_6'
+      and delivery_mode = 'teacher_led'
+  ) then
+    raise exception 'class_lesson_assessments only supports K to Grade 6 teacher_led classes';
+  end if;
+
+  if not exists (
+    select 1
+    from public.lessons
+    where id = new.lesson_id
+      and grade_band = 'k_to_6'
+  ) then
+    raise exception 'class_lesson_assessments only supports K to Grade 6 lessons';
+  end if;
+
+  if not exists (
+    select 1
+    from public.teacher_profiles
+    where profile_id = new.teacher_id
+      and supports_k_to_6 = true
+  ) then
+    raise exception 'teacher must support K to Grade 6 assessments';
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.ensure_student_account_class_scope()
+returns trigger
+language plpgsql
+as $$
+declare
+  target_class_id uuid;
+begin
+  target_class_id := case tg_table_name
+    when 'student_class_enrollments' then new.class_id
+    when 'student_lesson_progress' then new.class_id
+    when 'assignments' then new.class_id
+    else null
+  end;
+
+  if target_class_id is null or not exists (
+    select 1
+    from public.classes
+    where id = target_class_id
+      and grade_band = 'grades_7_to_12'
+      and delivery_mode in ('student_account', 'hybrid')
+  ) then
+    raise exception '% only supports Grades 7 to 12 student-account or hybrid classes', tg_table_name;
+  end if;
+
+  return new;
+end;
+$$;
+
 create trigger set_schools_updated_at before update on public.schools for each row execute function public.set_updated_at();
 create trigger set_academic_years_updated_at before update on public.academic_years for each row execute function public.set_updated_at();
 create trigger set_profiles_updated_at before update on public.profiles for each row execute function public.set_updated_at();
@@ -322,7 +441,9 @@ create trigger set_lessons_updated_at before update on public.lessons for each r
 create trigger set_activities_updated_at before update on public.activities for each row execute function public.set_updated_at();
 create trigger set_classes_updated_at before update on public.classes for each row execute function public.set_updated_at();
 create trigger set_class_lesson_progress_updated_at before update on public.class_lesson_progress for each row execute function public.set_updated_at();
+create trigger set_class_lesson_assessments_updated_at before update on public.class_lesson_assessments for each row execute function public.set_updated_at();
 create trigger set_student_lesson_progress_updated_at before update on public.student_lesson_progress for each row execute function public.set_updated_at();
+create trigger set_lesson_resources_updated_at before update on public.lesson_resources for each row execute function public.set_updated_at();
 create trigger set_assignments_updated_at before update on public.assignments for each row execute function public.set_updated_at();
 create trigger set_rubrics_updated_at before update on public.rubrics for each row execute function public.set_updated_at();
 create trigger set_rubric_criteria_updated_at before update on public.rubric_criteria for each row execute function public.set_updated_at();
@@ -330,8 +451,15 @@ create trigger set_assignment_submissions_updated_at before update on public.ass
 create trigger set_submission_feedback_updated_at before update on public.submission_feedback for each row execute function public.set_updated_at();
 create trigger set_submission_rubric_scores_updated_at before update on public.submission_rubric_scores for each row execute function public.set_updated_at();
 
+create trigger ensure_class_lesson_assessments_k6_scope before insert or update of class_id, lesson_id, teacher_id on public.class_lesson_assessments for each row execute function public.ensure_k6_class_lesson_assessment_scope();
+create trigger ensure_student_class_enrollments_student_account_scope before insert or update of class_id on public.student_class_enrollments for each row execute function public.ensure_student_account_class_scope();
+create trigger ensure_student_lesson_progress_student_account_scope before insert or update of class_id on public.student_lesson_progress for each row execute function public.ensure_student_account_class_scope();
+create trigger ensure_assignments_student_account_scope before insert or update of class_id on public.assignments for each row execute function public.ensure_student_account_class_scope();
+
 comment on table public.student_profiles is 'Future Grades 7 to 12 student-account records only. K to Grade 6 teacher-led classrooms should not create student accounts.';
 comment on table public.class_lesson_progress is 'Class-level progress for teacher-led K to Grade 6 delivery and high-level class tracking.';
+comment on table public.class_lesson_assessments is 'MVP 1 K to Grade 6 teacher-led class assessment records for lesson-level teacher observations.';
+comment on table public.lesson_resources is 'Lesson-attached resources for K to Grade 6 now and Grades 7 to 12 later.';
 comment on table public.student_lesson_progress is 'Future Grades 7 to 12 individual progress tracking for student-account delivery.';
 comment on table public.assignments is 'Future Grades 7 to 12 assignment records.';
 comment on table public.assignment_submissions is 'Future Grades 7 to 12 student submission records.';
