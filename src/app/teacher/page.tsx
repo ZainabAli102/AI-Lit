@@ -6,6 +6,8 @@ import { Layout } from "@/components/Layout";
 import { PageHeader } from "@/components/PageHeader";
 import { getTeacherClassesForMvp } from "@/lib/teacher-led-data";
 
+export const dynamic = "force-dynamic";
+
 export default async function TeacherPage() {
   const classes = await getTeacherClassesForMvp();
 
@@ -14,10 +16,10 @@ export default async function TeacherPage() {
       <PageHeader
         actions={
           <Button href="/teacher/classes" icon={<ArrowRight aria-hidden="true" className="h-4 w-4" />}>
-            View classes
+            Open teacher preview
           </Button>
         }
-        description="Teacher workspace for lesson delivery, class progress, smartboard activities, and future student-account workflows."
+        description="MVP 1 teacher workspace for K to Grade 6 teacher-led delivery, lesson resources, and class-level assessment."
         eyebrow="Teacher workspace"
         title="Teacher Dashboard"
       />
@@ -27,9 +29,9 @@ export default async function TeacherPage() {
         ))}
       </div>
       <DashboardCard
-        description="Teacher-led classes focus on whole-class delivery and class-level progress. Student-account classes will later unlock assignments, submissions, rubrics, and individual feedback."
+        description="K to Grade 6 uses teacher accounts only. Students do not sign in, and assessment is recorded once per class and lesson."
         eyebrow="Implementation note"
-        title="Two delivery modes, one school platform"
+        title="K-6 teacher-led model"
       />
     </Layout>
   );

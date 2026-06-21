@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, Building2, GraduationCap, LayoutDashboard, LogIn, MonitorUp, School, Settings2, UsersRound } from "lucide-react";
+import { BarChart3, BookOpen, Building2, CalendarDays, GraduationCap, LayoutDashboard, Link2, LogIn, MonitorUp, School, Settings2, UsersRound } from "lucide-react";
 import { clsx } from "clsx";
 
 const navGroups = [
@@ -11,10 +11,14 @@ const navGroups = [
     items: [{ label: "Login", href: "/login", icon: LogIn }]
   },
   {
-    title: "CONNECTED",
+    title: "Admin setup",
     items: [
-      { label: "Admin", href: "/admin", icon: LayoutDashboard },
+      { label: "Setup Home", href: "/admin", icon: LayoutDashboard },
       { label: "Schools", href: "/admin/schools", icon: Building2 },
+      { label: "Academic Years", href: "/admin/academic-years", icon: CalendarDays },
+      { label: "Teachers", href: "/admin/teachers", icon: UsersRound },
+      { label: "Classes", href: "/admin/classes", icon: GraduationCap },
+      { label: "Class Assignments", href: "/admin/class-assignments", icon: Link2 },
       { label: "Curriculum", href: "/admin/curriculum", icon: BookOpen },
       { label: "Reports", href: "/admin/reports", icon: BarChart3 }
     ]
@@ -31,9 +35,9 @@ const navGroups = [
   {
     title: "Teaching",
     items: [
-      { label: "Teacher", href: "/teacher", icon: LayoutDashboard },
+      { label: "Teacher Home", href: "/teacher", icon: LayoutDashboard },
       { label: "My Classes", href: "/teacher/classes", icon: GraduationCap },
-      { label: "Lesson Workspace", href: "/teacher/classes/grade-1a/lessons/ai-everyday-tools", icon: BookOpen },
+      { label: "Demo Lesson", href: "/teacher/classes/40000000-0000-4000-8000-000000000001/lessons/30000000-0000-4000-8000-000000000001", icon: BookOpen },
       { label: "Smartboard", href: "/teacher/smartboard/sample-activity", icon: MonitorUp }
     ]
   },

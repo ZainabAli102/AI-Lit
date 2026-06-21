@@ -227,7 +227,8 @@ create table public.class_lesson_assessments (
   teacher_notes text,
   overall_status public.k6_assessment_status not null default 'completed',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (class_id, lesson_id)
 );
 
 create table public.student_lesson_progress (

@@ -32,9 +32,11 @@ export async function submitK6AssessmentAction(formData: FormData) {
   const classId = readText(formData, "classId");
   const lessonId = readText(formData, "lessonId");
   const teacherId = readText(formData, "teacherId") ?? PREVIEW_TEACHER_PROFILE_ID;
+  const teacherProfileId = readText(formData, "teacherProfileId") ?? teacherId;
+  const teacherQuery = `teacherProfileId=${encodeURIComponent(teacherProfileId)}`;
 
   if (!classId || !lessonId) {
-    redirect("/teacher/classes?assessment=missing-context");
+    redirect(`/teacher/classes?assessment=missing-context&${teacherQuery}`);
   }
 
   const result = await saveK6ClassLessonAssessment({
@@ -53,5 +55,5 @@ export async function submitK6AssessmentAction(formData: FormData) {
   revalidatePath(`/teacher/classes/${classId}/lessons/${lessonId}`);
 
   const assessmentStatus = result.ok ? result.mode : "error";
-  redirect(`/teacher/classes/${classId}/lessons/${lessonId}?assessment=${assessmentStatus}`);
+  redirect(`/teacher/classes/${classId}/lessons/${lessonId}?assessment=${assessmentStatus}&${teacherQuery}`);
 }

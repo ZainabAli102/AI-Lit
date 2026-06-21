@@ -12,9 +12,12 @@ type ClassCardProps = {
     activeLessons: number;
     progressLabel?: string;
   };
+  teacherProfileId?: string;
 };
 
-export function ClassCard({ classInfo }: ClassCardProps) {
+export function ClassCard({ classInfo, teacherProfileId }: ClassCardProps) {
+  const classHref = teacherProfileId ? `/teacher/classes/${classInfo.id}?teacherProfileId=${encodeURIComponent(teacherProfileId)}` : `/teacher/classes/${classInfo.id}`;
+
   return (
     <article className="rounded-lg border border-[#dde3dc] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#b9c8c0] hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
@@ -59,7 +62,7 @@ export function ClassCard({ classInfo }: ClassCardProps) {
       </dl>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <Button href={`/teacher/classes/${classInfo.id}`} variant="secondary">
+        <Button href={classHref} variant="secondary">
           Open class
         </Button>
         <Button href="/school/progress" variant="ghost">

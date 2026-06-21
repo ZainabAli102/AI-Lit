@@ -9,7 +9,15 @@ export function createSupabaseClient(): SupabaseClient<Database> | null {
     return null;
   }
 
-  return createClient<Database>(supabaseUrl, supabaseAnonKey);
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    global: {
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          cache: "no-store"
+        })
+    }
+  });
 }
 
 export const createSupabaseBrowserClient = createSupabaseClient;

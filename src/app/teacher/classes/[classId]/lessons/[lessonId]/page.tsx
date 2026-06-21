@@ -4,7 +4,14 @@ import { DashboardCard } from "@/components/DashboardCard";
 import { Layout } from "@/components/Layout";
 import { PageHeader } from "@/components/PageHeader";
 import { DELIVERY_MODE_LABELS, GRADE_BAND_LABELS } from "@/lib/constants";
-import { getLessonForClass, getLessonResources, getTeacherClass, PREVIEW_TEACHER_PROFILE_ID } from "@/lib/teacher-led-data";
+import {
+  getK6ClassLessonAssessment,
+  getLessonForClass,
+  getLessonResourcesResult,
+  getTeacherClassResult,
+  PREVIEW_TEACHER_PROFILE_ID,
+  type K6AssessmentInput
+} from "@/lib/teacher-led-data";
 import { submitK6AssessmentAction } from "@/app/teacher/classes/[classId]/lessons/[lessonId]/actions";
 
 type ClassLessonPageProps = {
@@ -14,6 +21,7 @@ type ClassLessonPageProps = {
   }>;
   searchParams: Promise<{
     assessment?: string;
+    teacherProfileId?: string;
   }>;
 };
 
@@ -25,7 +33,7 @@ const responseOptions = [
 
 function assessmentMessage(status?: string) {
   if (status === "supabase") {
-    return "Assessment saved to class_lesson_assessments.";
+    return "Current assessment saved to class_lesson_assessments.";
   }
 
   if (status === "local_preview") {
@@ -46,14 +54,22 @@ function resourceTypeLabel(value: string) {
     .join(" ");
 }
 
-function ResponseGroup({ legend, name }: { legend: string; name: string }) {
+function ResponseGroup({
+  legend,
+  name,
+  value
+}: {
+  legend: string;
+  name: string;
+  value: K6AssessmentInput["objectiveMet"];
+}) {
   return (
     <fieldset className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
       <legend className="px-1 text-sm font-semibold text-[#17211c]">{legend}</legend>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {responseOptions.map((option) => (
           <label className="flex min-h-10 items-center gap-2 rounded-md border border-[#dde3dc] bg-white px-3 text-sm text-[#42514a]" key={option.value}>
-            <input className="h-4 w-4 accent-[#116466]" defaultChecked={option.value === "partly"} name={name} type="radio" value={option.value} />
+            <input className="h-4 w-4 accent-[#116466]" defaultChecked={option.value === value} name={name} type="radio" value={option.value} />
             <span>{option.label}</span>
           </label>
         ))}
@@ -64,19 +80,38 @@ function ResponseGroup({ legend, name }: { legend: string; name: string }) {
 
 export default async function ClassLessonPage({ params, searchParams }: ClassLessonPageProps) {
   const { classId, lessonId } = await params;
-  const { assessment } = await searchParams;
-  const classInfo = await getTeacherClass(classId);
+  const { assessment, teacherProfileId } = await searchParams;
+  const selectedTeacherProfileId = teacherProfileId?.trim() || PREVIEW_TEACHER_PROFILE_ID;
+  const teacherQuery = `teacherProfileId=${encodeURIComponent(selectedTeacherProfileId)}`;
+  const classResult = await getTeacherClassResult(classId);
+  const classInfo = classResult.data;
   const lesson = classInfo ? await getLessonForClass(classInfo, lessonId) : null;
-  const resources = await getLessonResources(lessonId);
+  const resourcesResult = await getLessonResourcesResult(lessonId);
+  const resources = resourcesResult.data;
+  const assessmentResult = await getK6ClassLessonAssessment(classId, lessonId);
+  const existingAssessment = assessmentResult.data;
   const message = assessmentMessage(assessment);
   const isK6TeacherLed = classInfo?.gradeBand === "k_to_6" && classInfo.deliveryMode === "teacher_led";
+  const objectiveMet = existingAssessment?.objectiveMet ?? "partly";
+  const activityCompleted = existingAssessment?.activityCompleted ?? "partly";
+  const studentsExplainedThinking = existingAssessment?.studentsExplainedThinking ?? "partly";
+  const overallStatus = existingAssessment?.overallStatus ?? "completed";
+
+  if (!classInfo) {
+    return (
+      <Layout>
+        <PageHeader description="The requested class was not returned from Supabase or preview data." eyebrow="Teacher workspace" title="Class not found." />
+        <DashboardCard description={classResult.error ?? `No class found for id ${classId}.`} eyebrow={classResult.mode} title="Class lookup failed" />
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <PageHeader
         actions={
           <>
-            <Button href={`/teacher/classes/${classId}`} icon={<ArrowLeft aria-hidden="true" className="h-4 w-4" />} variant="secondary">
+            <Button href={`/teacher/classes/${classId}?${teacherQuery}`} icon={<ArrowLeft aria-hidden="true" className="h-4 w-4" />} variant="secondary">
               Class
             </Button>
             <Button href="/teacher/smartboard/sample-activity" icon={<MonitorUp aria-hidden="true" className="h-4 w-4" />}>
@@ -84,7 +119,7 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
             </Button>
           </>
         }
-        description={lesson?.summary ?? "Lesson detail for teacher-led class delivery."}
+        description={lesson?.summary ?? "Lesson detail for K to Grade 6 teacher-led class delivery."}
         eyebrow={classInfo ? `${classInfo.name} - ${GRADE_BAND_LABELS[classInfo.gradeBand]} - ${DELIVERY_MODE_LABELS[classInfo.deliveryMode]}` : "Teacher workspace"}
         title={lesson?.title ?? decodeURIComponent(lessonId)}
       />
@@ -93,9 +128,17 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
         <div className="rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-4 py-3 text-sm font-semibold text-[#0b4d4f]">{message}</div>
       ) : null}
 
-      {!isK6TeacherLed ? (
+      {classResult.error || resourcesResult.error || assessmentResult.error ? (
         <DashboardCard
-          description="This MVP 1 assessment form is intentionally limited to K to Grade 6 teacher-led classes. Student-account functionality remains reserved for Grades 7 to 12 later."
+          description={[classResult.error, resourcesResult.error, assessmentResult.error].filter(Boolean).join(" ")}
+          eyebrow={classResult.mode}
+          title="Supabase query notice"
+        />
+      ) : null}
+
+      {!isK6TeacherLed ? (
+          <DashboardCard
+          description="This MVP 1 assessment form is intentionally limited to K to Grade 6 teacher-led classes and class-level assessment only."
           title="Teacher-led K to Grade 6 only"
         />
       ) : null}
@@ -119,20 +162,30 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
                 </article>
               ))
             ) : (
-              <p className="text-sm leading-6 text-[#66746d]">No lesson resources have been added yet.</p>
+              <p className="text-sm leading-6 text-[#66746d]">No lesson_resources rows were found for this lesson. Add resources before using the lesson in a live teacher-led session.</p>
             )}
           </div>
         </DashboardCard>
 
         <DashboardCard eyebrow="class_lesson_assessments" title="Class Assessment">
+          {existingAssessment ? (
+            <div className="mb-4 rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-4 py-3 text-sm text-[#0b4d4f]">
+              Current assessment loaded. Last saved {new Date(existingAssessment.updatedAt).toLocaleString()}.
+            </div>
+          ) : (
+            <div className="mb-4 rounded-md border border-[#dde3dc] bg-[#fbfcfa] px-4 py-3 text-sm text-[#66746d]">
+              No saved assessment yet for this class and lesson.
+            </div>
+          )}
           <form action={submitK6AssessmentAction} className="space-y-4">
             <input name="classId" type="hidden" value={classId} />
             <input name="lessonId" type="hidden" value={lessonId} />
-            <input name="teacherId" type="hidden" value={PREVIEW_TEACHER_PROFILE_ID} />
+            <input name="teacherId" type="hidden" value={selectedTeacherProfileId} />
+            <input name="teacherProfileId" type="hidden" value={selectedTeacherProfileId} />
 
-            <ResponseGroup legend="Objective met" name="objectiveMet" />
-            <ResponseGroup legend="Activity completed" name="activityCompleted" />
-            <ResponseGroup legend="Students explained their thinking" name="studentsExplainedThinking" />
+            <ResponseGroup legend="Objective met" name="objectiveMet" value={objectiveMet} />
+            <ResponseGroup legend="Activity completed" name="activityCompleted" value={activityCompleted} />
+            <ResponseGroup legend="Students explained their thinking" name="studentsExplainedThinking" value={studentsExplainedThinking} />
 
             <label className="block">
               <span className="text-sm font-semibold text-[#42514a]">Students needing support</span>
@@ -140,6 +193,7 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
                 className="mt-2 min-h-24 w-full rounded-md border border-[#cad6cf] bg-[#fbfcfa] px-3 py-2 text-sm outline-none transition focus:border-[#116466] focus:ring-2 focus:ring-[#c9dfd8]"
                 name="studentsNeedingSupport"
                 placeholder="Names, groups, or support notes. No student accounts are used for K to 6."
+                defaultValue={existingAssessment?.studentsNeedingSupport ?? ""}
               />
             </label>
 
@@ -149,6 +203,7 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
                 className="mt-2 min-h-24 w-full rounded-md border border-[#cad6cf] bg-[#fbfcfa] px-3 py-2 text-sm outline-none transition focus:border-[#116466] focus:ring-2 focus:ring-[#c9dfd8]"
                 name="teacherNotes"
                 placeholder="Whole-class observations, misconceptions, or next lesson adjustments."
+                defaultValue={existingAssessment?.teacherNotes ?? ""}
               />
             </label>
 
@@ -156,18 +211,18 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
               <legend className="px-1 text-sm font-semibold text-[#17211c]">Overall status</legend>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <label className="flex min-h-10 items-center gap-2 rounded-md border border-[#dde3dc] bg-white px-3 text-sm text-[#42514a]">
-                  <input className="h-4 w-4 accent-[#116466]" defaultChecked name="overallStatus" type="radio" value="completed" />
+                  <input className="h-4 w-4 accent-[#116466]" defaultChecked={overallStatus === "completed"} name="overallStatus" type="radio" value="completed" />
                   <span>Completed</span>
                 </label>
                 <label className="flex min-h-10 items-center gap-2 rounded-md border border-[#dde3dc] bg-white px-3 text-sm text-[#42514a]">
-                  <input className="h-4 w-4 accent-[#116466]" name="overallStatus" type="radio" value="needs_review" />
+                  <input className="h-4 w-4 accent-[#116466]" defaultChecked={overallStatus === "needs_review"} name="overallStatus" type="radio" value="needs_review" />
                   <span>Needs review</span>
                 </label>
               </div>
             </fieldset>
 
             <Button className="w-full" disabled={!isK6TeacherLed} icon={<ClipboardCheck aria-hidden="true" className="h-4 w-4" />} type="submit">
-              Save class assessment
+              {existingAssessment ? "Update class assessment" : "Save class assessment"}
             </Button>
           </form>
         </DashboardCard>
