@@ -38,10 +38,14 @@ export type Database = {
       };
       activities: {
         Row: {
+          access_type: Database["public"]["Enums"]["content_access_type"];
+          activity_code: string | null;
+          activity_json: Json;
           activity_type: string;
           created_at: string;
           delivery_mode: Database["public"]["Enums"]["delivery_mode"];
           id: string;
+          instructions: string | null;
           is_smartboard_ready: boolean;
           lesson_id: string;
           sequence_order: number;
@@ -49,10 +53,14 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          access_type?: Database["public"]["Enums"]["content_access_type"];
+          activity_code?: string | null;
+          activity_json?: Json;
           activity_type?: string;
           created_at?: string;
           delivery_mode?: Database["public"]["Enums"]["delivery_mode"];
           id?: string;
+          instructions?: string | null;
           is_smartboard_ready?: boolean;
           lesson_id: string;
           sequence_order?: number;
@@ -60,10 +68,14 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          access_type?: Database["public"]["Enums"]["content_access_type"];
+          activity_code?: string | null;
+          activity_json?: Json;
           activity_type?: string;
           created_at?: string;
           delivery_mode?: Database["public"]["Enums"]["delivery_mode"];
           id?: string;
+          instructions?: string | null;
           is_smartboard_ready?: boolean;
           lesson_id?: string;
           sequence_order?: number;
@@ -298,29 +310,119 @@ export type Database = {
         Row: {
           created_at: string;
           description: string | null;
+          duration_weeks: number | null;
           grade_band: Database["public"]["Enums"]["grade_band"];
+          grade_level: number | null;
           id: string;
           is_active: boolean;
+          learning_goals: string | null;
+          program_id: string | null;
           sequence_order: number;
+          status: string;
+          title: string;
+          unit_code: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          duration_weeks?: number | null;
+          grade_band: Database["public"]["Enums"]["grade_band"];
+          grade_level?: number | null;
+          id?: string;
+          is_active?: boolean;
+          learning_goals?: string | null;
+          program_id?: string | null;
+          sequence_order?: number;
+          status?: string;
+          title: string;
+          unit_code?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          duration_weeks?: number | null;
+          grade_band?: Database["public"]["Enums"]["grade_band"];
+          grade_level?: number | null;
+          id?: string;
+          is_active?: boolean;
+          learning_goals?: string | null;
+          program_id?: string | null;
+          sequence_order?: number;
+          status?: string;
+          title?: string;
+          unit_code?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      curriculum_programs: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          grade_band: Database["public"]["Enums"]["grade_band"];
+          id: string;
+          program_code: string;
+          status: string;
           title: string;
           updated_at: string;
+          version: string;
         };
         Insert: {
           created_at?: string;
           description?: string | null;
           grade_band: Database["public"]["Enums"]["grade_band"];
           id?: string;
-          is_active?: boolean;
-          sequence_order?: number;
+          program_code: string;
+          status?: string;
           title: string;
           updated_at?: string;
+          version?: string;
         };
         Update: {
           created_at?: string;
           description?: string | null;
           grade_band?: Database["public"]["Enums"]["grade_band"];
           id?: string;
-          is_active?: boolean;
+          program_code?: string;
+          status?: string;
+          title?: string;
+          updated_at?: string;
+          version?: string;
+        };
+        Relationships: [];
+      };
+      curriculum_grades: {
+        Row: {
+          created_at: string;
+          grade_band: Database["public"]["Enums"]["grade_band"];
+          grade_code: string;
+          grade_level: number;
+          id: string;
+          program_id: string;
+          sequence_order: number;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          grade_band: Database["public"]["Enums"]["grade_band"];
+          grade_code: string;
+          grade_level: number;
+          id?: string;
+          program_id: string;
+          sequence_order?: number;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          grade_band?: Database["public"]["Enums"]["grade_band"];
+          grade_code?: string;
+          grade_level?: number;
+          id?: string;
+          program_id?: string;
           sequence_order?: number;
           title?: string;
           updated_at?: string;
@@ -329,38 +431,113 @@ export type Database = {
       };
       lessons: {
         Row: {
+          content_version: string;
           created_at: string;
+          duration_minutes: number | null;
+          essential_question: string | null;
           curriculum_unit_id: string;
           estimated_minutes: number | null;
           grade_band: Database["public"]["Enums"]["grade_band"];
+          grade_level: number | null;
           id: string;
           is_active: boolean;
+          learning_objectives: string | null;
+          lesson_code: string | null;
+          materials_needed: string | null;
           sequence_order: number;
+          status: string;
           summary: string | null;
+          teacher_prep_notes: string | null;
+          title: string;
+          updated_at: string;
+          vocabulary: string | null;
+        };
+        Insert: {
+          content_version?: string;
+          created_at?: string;
+          duration_minutes?: number | null;
+          essential_question?: string | null;
+          curriculum_unit_id: string;
+          estimated_minutes?: number | null;
+          grade_band: Database["public"]["Enums"]["grade_band"];
+          grade_level?: number | null;
+          id?: string;
+          is_active?: boolean;
+          learning_objectives?: string | null;
+          lesson_code?: string | null;
+          materials_needed?: string | null;
+          sequence_order?: number;
+          status?: string;
+          summary?: string | null;
+          teacher_prep_notes?: string | null;
+          title: string;
+          updated_at?: string;
+          vocabulary?: string | null;
+        };
+        Update: {
+          content_version?: string;
+          created_at?: string;
+          duration_minutes?: number | null;
+          essential_question?: string | null;
+          curriculum_unit_id?: string;
+          estimated_minutes?: number | null;
+          grade_band?: Database["public"]["Enums"]["grade_band"];
+          grade_level?: number | null;
+          id?: string;
+          is_active?: boolean;
+          learning_objectives?: string | null;
+          lesson_code?: string | null;
+          materials_needed?: string | null;
+          sequence_order?: number;
+          status?: string;
+          summary?: string | null;
+          teacher_prep_notes?: string | null;
+          title?: string;
+          updated_at?: string;
+          vocabulary?: string | null;
+        };
+        Relationships: [];
+      };
+      lesson_sections: {
+        Row: {
+          access_type: Database["public"]["Enums"]["content_access_type"];
+          content: string | null;
+          content_json: Json;
+          created_at: string;
+          estimated_minutes: number | null;
+          id: string;
+          lesson_id: string;
+          section_code: string | null;
+          section_type: Database["public"]["Enums"]["lesson_section_type"];
+          sequence_order: number;
           title: string;
           updated_at: string;
         };
         Insert: {
+          access_type?: Database["public"]["Enums"]["content_access_type"];
+          content?: string | null;
+          content_json?: Json;
           created_at?: string;
-          curriculum_unit_id: string;
           estimated_minutes?: number | null;
-          grade_band: Database["public"]["Enums"]["grade_band"];
           id?: string;
-          is_active?: boolean;
+          lesson_id: string;
+          section_code?: string | null;
+          section_type: Database["public"]["Enums"]["lesson_section_type"];
           sequence_order?: number;
-          summary?: string | null;
           title: string;
           updated_at?: string;
         };
         Update: {
+          access_type?: Database["public"]["Enums"]["content_access_type"];
+          content?: string | null;
+          content_json?: Json;
           created_at?: string;
-          curriculum_unit_id?: string;
           estimated_minutes?: number | null;
-          grade_band?: Database["public"]["Enums"]["grade_band"];
           id?: string;
-          is_active?: boolean;
+          lesson_id?: string;
+          section_code?: string | null;
+          section_type?: Database["public"]["Enums"]["lesson_section_type"];
           sequence_order?: number;
-          summary?: string | null;
           title?: string;
           updated_at?: string;
         };
@@ -368,35 +545,107 @@ export type Database = {
       };
       lesson_resources: {
         Row: {
+          access_type: Database["public"]["Enums"]["content_access_type"];
           content: string | null;
           created_at: string;
           description: string | null;
+          display_mode: string;
+          estimated_pages: number | null;
           file_url: string | null;
           id: string;
+          is_downloadable: boolean;
+          is_printable: boolean;
           lesson_id: string;
+          mime_type: string | null;
+          resource_code: string | null;
           resource_type: Database["public"]["Enums"]["lesson_resource_type"];
+          sort_order: number;
+          storage_path: string | null;
+          title: string;
+          updated_at: string;
+          visibility: string;
+        };
+        Insert: {
+          access_type?: Database["public"]["Enums"]["content_access_type"];
+          content?: string | null;
+          created_at?: string;
+          description?: string | null;
+          display_mode?: string;
+          estimated_pages?: number | null;
+          file_url?: string | null;
+          id?: string;
+          is_downloadable?: boolean;
+          is_printable?: boolean;
+          lesson_id: string;
+          mime_type?: string | null;
+          resource_code?: string | null;
+          resource_type: Database["public"]["Enums"]["lesson_resource_type"];
+          sort_order?: number;
+          storage_path?: string | null;
+          title: string;
+          updated_at?: string;
+          visibility?: string;
+        };
+        Update: {
+          access_type?: Database["public"]["Enums"]["content_access_type"];
+          content?: string | null;
+          created_at?: string;
+          description?: string | null;
+          display_mode?: string;
+          estimated_pages?: number | null;
+          file_url?: string | null;
+          id?: string;
+          is_downloadable?: boolean;
+          is_printable?: boolean;
+          lesson_id?: string;
+          mime_type?: string | null;
+          resource_code?: string | null;
+          resource_type?: Database["public"]["Enums"]["lesson_resource_type"];
+          sort_order?: number;
+          storage_path?: string | null;
+          title?: string;
+          updated_at?: string;
+          visibility?: string;
+        };
+        Relationships: [];
+      };
+      assessment_templates: {
+        Row: {
+          access_type: Database["public"]["Enums"]["content_access_type"];
+          assessment_type: string;
+          created_at: string;
+          criteria_json: Json;
+          description: string | null;
+          id: string;
+          lesson_id: string;
+          sequence_order: number;
+          template_code: string | null;
           title: string;
           updated_at: string;
         };
         Insert: {
-          content?: string | null;
+          access_type?: Database["public"]["Enums"]["content_access_type"];
+          assessment_type?: string;
           created_at?: string;
+          criteria_json?: Json;
           description?: string | null;
-          file_url?: string | null;
           id?: string;
           lesson_id: string;
-          resource_type: Database["public"]["Enums"]["lesson_resource_type"];
+          sequence_order?: number;
+          template_code?: string | null;
           title: string;
           updated_at?: string;
         };
         Update: {
-          content?: string | null;
+          access_type?: Database["public"]["Enums"]["content_access_type"];
+          assessment_type?: string;
           created_at?: string;
+          criteria_json?: Json;
           description?: string | null;
-          file_url?: string | null;
           id?: string;
           lesson_id?: string;
-          resource_type?: Database["public"]["Enums"]["lesson_resource_type"];
+          sequence_order?: number;
+          template_code?: string | null;
           title?: string;
           updated_at?: string;
         };
@@ -752,9 +1001,30 @@ export type Database = {
       app_role: "connected_mena_admin" | "school_admin" | "academic_coordinator" | "teacher" | "student";
       assessment_response: "yes" | "partly" | "no";
       assignment_status: "draft" | "published" | "archived";
+      content_access_type: "platform_only" | "printable" | "downloadable" | "teacher_only" | "student_visible_later";
+      curriculum_activity_type:
+        | "sorting_cards"
+        | "matching"
+        | "true_false"
+        | "discussion_prompt"
+        | "pattern_recognition"
+        | "scenario_cards"
+        | "class_poll"
+        | "reflection_prompt";
       delivery_mode: "teacher_led" | "student_account" | "hybrid";
       grade_band: "k_to_6" | "grades_7_to_12";
       k6_assessment_status: "completed" | "needs_review";
+      lesson_section_type:
+        | "overview"
+        | "learning_objectives"
+        | "teacher_script"
+        | "discussion_prompt"
+        | "lesson_flow"
+        | "guided_activity"
+        | "reflection"
+        | "differentiation"
+        | "extension"
+        | "assessment_guidance";
       lesson_resource_type:
         | "teacher_guide"
         | "worksheet"

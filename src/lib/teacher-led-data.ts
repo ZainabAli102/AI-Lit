@@ -1,5 +1,9 @@
 import { DELIVERY_MODES, GRADE_BANDS, type DeliveryMode, type GradeBand } from "@/lib/constants";
 import { createSupabaseClient } from "@/lib/supabase/client";
+import type { Database, Json } from "@/types/database";
+
+type ContentAccessType = Database["public"]["Enums"]["content_access_type"];
+type LessonSectionType = Database["public"]["Enums"]["lesson_section_type"];
 
 export type TeacherClass = {
   id: string;
@@ -14,16 +18,26 @@ export type TeacherClass = {
 
 export type TeacherLesson = {
   id: string;
+  lessonCode: string | null;
   title: string;
   summary: string;
   sequenceOrder: number;
   estimatedMinutes: number | null;
+  durationMinutes: number | null;
   gradeBand: GradeBand;
+  gradeLevel: number | null;
+  learningObjectives: string | null;
+  essentialQuestion: string | null;
+  materialsNeeded: string | null;
+  vocabulary: string | null;
+  teacherPrepNotes: string | null;
+  contentVersion: string;
 };
 
 export type LessonResource = {
   id: string;
   lessonId: string;
+  resourceCode: string | null;
   resourceType:
     | "teacher_guide"
     | "worksheet"
@@ -38,6 +52,54 @@ export type LessonResource = {
   description: string | null;
   fileUrl: string | null;
   content: string | null;
+  accessType: ContentAccessType;
+  visibility: string;
+  isPrintable: boolean;
+  isDownloadable: boolean;
+  storagePath: string | null;
+  mimeType: string | null;
+  estimatedPages: number | null;
+  displayMode: string;
+  sortOrder: number;
+};
+
+export type LessonSection = {
+  id: string;
+  lessonId: string;
+  sectionCode: string | null;
+  sectionType: LessonSectionType;
+  title: string;
+  content: string | null;
+  contentJson: Json;
+  sequenceOrder: number;
+  accessType: ContentAccessType;
+  estimatedMinutes: number | null;
+};
+
+export type LessonActivity = {
+  id: string;
+  lessonId: string;
+  activityCode: string | null;
+  title: string;
+  activityType: string;
+  deliveryMode: DeliveryMode;
+  accessType: ContentAccessType;
+  isSmartboardReady: boolean;
+  instructions: string | null;
+  activityJson: Json;
+  sequenceOrder: number;
+};
+
+export type AssessmentTemplate = {
+  id: string;
+  lessonId: string;
+  templateCode: string | null;
+  title: string;
+  description: string | null;
+  assessmentType: string;
+  criteriaJson: Json;
+  accessType: ContentAccessType;
+  sequenceOrder: number;
 };
 
 export type K6AssessmentInput = {
@@ -140,21 +202,79 @@ type ProfileRow = {
 
 type LessonRow = {
   id: string;
+  lesson_code: string | null;
   title: string;
   summary: string | null;
   sequence_order: number;
   estimated_minutes: number | null;
+  duration_minutes: number | null;
   grade_band: GradeBand;
+  grade_level: number | null;
+  learning_objectives: string | null;
+  essential_question: string | null;
+  materials_needed: string | null;
+  vocabulary: string | null;
+  teacher_prep_notes: string | null;
+  content_version: string;
 };
 
 type LessonResourceRow = {
   id: string;
   lesson_id: string;
+  resource_code: string | null;
   resource_type: LessonResource["resourceType"];
   title: string;
   description: string | null;
   file_url: string | null;
   content: string | null;
+  access_type: ContentAccessType;
+  visibility: string;
+  is_printable: boolean;
+  is_downloadable: boolean;
+  storage_path: string | null;
+  mime_type: string | null;
+  estimated_pages: number | null;
+  display_mode: string;
+  sort_order: number;
+};
+
+type LessonSectionRow = {
+  id: string;
+  lesson_id: string;
+  section_code: string | null;
+  section_type: LessonSectionType;
+  title: string;
+  content: string | null;
+  content_json: Json;
+  sequence_order: number;
+  access_type: ContentAccessType;
+  estimated_minutes: number | null;
+};
+
+type LessonActivityRow = {
+  id: string;
+  lesson_id: string;
+  activity_code: string | null;
+  title: string;
+  activity_type: string;
+  delivery_mode: DeliveryMode;
+  access_type: ContentAccessType;
+  is_smartboard_ready: boolean;
+  instructions: string | null;
+  activity_json: Json;
+  sequence_order: number;
+};
+
+type AssessmentTemplateRow = {
+  id: string;
+  lesson_id: string;
+  template_code: string | null;
+  title: string;
+  description: string | null;
+  assessment_type: string;
+  criteria_json: Json;
+  access_type: ContentAccessType;
+  sequence_order: number;
 };
 
 type K6AssessmentRow = {
@@ -208,83 +328,271 @@ const previewTeacherOptions: TeacherPreviewOption[] = [
 const previewLessons: TeacherLesson[] = [
   {
     id: PREVIEW_FIRST_K6_LESSON_ID,
+    lessonCode: "CM-AIL-G1-U1-L1",
     title: "AI Around Us",
     summary: "Teacher-led discussion about where students encounter AI in familiar classroom and home contexts.",
     sequenceOrder: 1,
     estimatedMinutes: 35,
-    gradeBand: GRADE_BANDS.kTo6
+    durationMinutes: 35,
+    gradeBand: GRADE_BANDS.kTo6,
+    gradeLevel: 1,
+    learningObjectives: "Students identify familiar AI-powered tools and explain that AI can use patterns or data to help people.",
+    essentialQuestion: "Where do we see AI around us?",
+    materialsNeeded: "Smartboard, sorting cards, teacher checklist, optional printable reflection sheet.",
+    vocabulary: "AI, pattern, data, tool, choice",
+    teacherPrepNotes: "Use familiar classroom and home examples. Avoid implying every computer is AI.",
+    contentVersion: "demo-1.0"
   },
   {
     id: "30000000-0000-4000-8000-000000000002",
+    lessonCode: "CM-AIL-G1-U1-L2",
     title: "Patterns and Prompts",
     summary: "A simple class activity for noticing patterns and explaining how instructions change an output.",
     sequenceOrder: 2,
     estimatedMinutes: 40,
-    gradeBand: GRADE_BANDS.kTo6
+    durationMinutes: 40,
+    gradeBand: GRADE_BANDS.kTo6,
+    gradeLevel: 1,
+    learningObjectives: "Students complete simple patterns and explain how instructions can change an output.",
+    essentialQuestion: "How do patterns help us make predictions?",
+    materialsNeeded: "Pattern cards, counters or drawings, printable pair worksheet.",
+    vocabulary: "pattern, prompt, instruction, output",
+    teacherPrepNotes: "Prepare one visible class pattern and one incomplete pattern for pair talk.",
+    contentVersion: "demo-1.0"
   },
   {
     id: "30000000-0000-4000-8000-000000000003",
+    lessonCode: "CM-AIL-G1-U1-L3",
     title: "Kind AI Choices",
     summary: "A teacher-led reflection on helpful, fair, and careful choices when using AI tools.",
     sequenceOrder: 3,
     estimatedMinutes: 30,
-    gradeBand: GRADE_BANDS.kTo6
+    durationMinutes: 30,
+    gradeBand: GRADE_BANDS.kTo6,
+    gradeLevel: 1,
+    learningObjectives: "Students describe kind, careful choices when using AI-supported tools.",
+    essentialQuestion: "How can we make careful choices with AI?",
+    materialsNeeded: "Scenario cards, class reflection prompt, teacher checklist.",
+    vocabulary: "kind, careful, fair, private, ask an adult",
+    teacherPrepNotes: "Keep scenarios age-appropriate and focused on classroom behavior.",
+    contentVersion: "demo-1.0"
   },
   {
     id: "90000000-0000-4000-8000-000000000002",
+    lessonCode: null,
     title: "AI Research Skills",
     summary: "Future student-account lesson for evaluating AI-supported research outputs.",
     sequenceOrder: 1,
     estimatedMinutes: 45,
-    gradeBand: GRADE_BANDS.grades7To12
+    durationMinutes: 45,
+    gradeBand: GRADE_BANDS.grades7To12,
+    gradeLevel: 8,
+    learningObjectives: null,
+    essentialQuestion: null,
+    materialsNeeded: null,
+    vocabulary: null,
+    teacherPrepNotes: null,
+    contentVersion: "preview"
   }
 ];
 
+function makePreviewResource(resource: Omit<LessonResource, "resourceCode" | "accessType" | "visibility" | "isPrintable" | "isDownloadable" | "storagePath" | "mimeType" | "estimatedPages" | "displayMode" | "sortOrder"> & Partial<LessonResource>): LessonResource {
+  return {
+    resourceCode: null,
+    accessType: "platform_only",
+    visibility: "teacher",
+    isPrintable: false,
+    isDownloadable: false,
+    storagePath: null,
+    mimeType: null,
+    estimatedPages: null,
+    displayMode: "inline",
+    sortOrder: 0,
+    ...resource
+  };
+}
+
 const previewResources: LessonResource[] = [
-  {
+  makePreviewResource({
     id: "resource-teacher-guide-ai-around-us",
     lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    resourceCode: "CM-AIL-G1-U1-L1-R1",
     resourceType: "teacher_guide",
     title: "Teacher Guide",
     description: "Opening questions, vocabulary, and facilitation notes for a whole-class K-6 lesson.",
     fileUrl: null,
-    content: "Use examples from school life: recommendations, voice assistants, translation, and classroom tools."
-  },
-  {
+    content: "Use examples from school life: recommendations, voice assistants, translation, and classroom tools.",
+    accessType: "teacher_only",
+    sortOrder: 1
+  }),
+  makePreviewResource({
     id: "resource-smartboard-ai-around-us",
     lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    resourceCode: "CM-AIL-G1-U1-L1-R2",
     resourceType: "smartboard_activity",
     title: "Smartboard Sorting Activity",
     description: "Classifies everyday tools into AI-powered, computer-powered, and human-powered examples.",
     fileUrl: null,
-    content: "Prompt students to explain their thinking after each sort."
-  },
-  {
+    content: "Prompt students to explain their thinking after each sort.",
+    accessType: "platform_only",
+    displayMode: "smartboard",
+    sortOrder: 2
+  }),
+  makePreviewResource({
     id: "resource-assessment-ai-around-us",
     lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    resourceCode: "CM-AIL-G1-U1-L1-R3",
     resourceType: "assessment",
     title: "Class Reflection Check",
     description: "Teacher-facing checklist for class-level understanding.",
     fileUrl: null,
-    content: "Record whether students could name an AI example and explain why it may use data or patterns."
-  },
-  {
+    content: "Record whether students could name an AI example and explain why it may use data or patterns.",
+    accessType: "teacher_only",
+    sortOrder: 3
+  }),
+  makePreviewResource({
+    id: "resource-reflection-ai-around-us",
+    lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    resourceCode: "CM-AIL-G1-U1-L1-R4",
+    resourceType: "worksheet",
+    title: "AI Around Us Reflection Sheet",
+    description: "Printable one-page classroom reflection sheet.",
+    fileUrl: null,
+    content: "Draw one tool that might use AI. Complete: I think it uses AI because...",
+    accessType: "printable",
+    isPrintable: true,
+    mimeType: "text/plain",
+    estimatedPages: 1,
+    displayMode: "print",
+    sortOrder: 4
+  }),
+  makePreviewResource({
     id: "resource-worksheet-patterns",
     lessonId: "30000000-0000-4000-8000-000000000002",
+    resourceCode: "CM-AIL-G1-U1-L2-R1",
     resourceType: "worksheet",
     title: "Pattern Cards",
     description: "Printable pattern prompts for small-group classroom discussion.",
     fileUrl: null,
-    content: "Students complete a pattern and explain the rule aloud."
-  },
-  {
+    content: "Students complete a pattern and explain the rule aloud.",
+    accessType: "printable",
+    isPrintable: true,
+    mimeType: "text/plain",
+    estimatedPages: 1,
+    displayMode: "print",
+    sortOrder: 1
+  }),
+  makePreviewResource({
     id: "resource-support-kind-ai",
     lessonId: "30000000-0000-4000-8000-000000000003",
+    resourceCode: "CM-AIL-G1-U1-L3-R1",
     resourceType: "support_activity",
     title: "Choice Cards",
     description: "Support activity for discussing fair and careful AI choices.",
     fileUrl: null,
-    content: "Read each scenario and ask the class what a careful choice would look like."
+    content: "Read each scenario and ask the class what a careful choice would look like.",
+    accessType: "printable",
+    isPrintable: true,
+    mimeType: "text/plain",
+    estimatedPages: 1,
+    displayMode: "print",
+    sortOrder: 1
+  })
+];
+
+const previewSections: LessonSection[] = [
+  {
+    id: "preview-section-l1-overview",
+    lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    sectionCode: "CM-AIL-G1-U1-L1-S1",
+    sectionType: "overview",
+    title: "Lesson Overview",
+    content: "Students explore familiar places where AI may appear, then explain their thinking as a class. This core overview is rendered inside the platform.",
+    contentJson: { teacher_note: "Keep examples concrete and local to school life." },
+    sequenceOrder: 1,
+    accessType: "platform_only",
+    estimatedMinutes: 5
+  },
+  {
+    id: "preview-section-l1-flow",
+    lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    sectionCode: "CM-AIL-G1-U1-L1-S2",
+    sectionType: "lesson_flow",
+    title: "Teacher-Led Flow",
+    content: "1. Invite students to name technology they see at school or home. 2. Show examples and ask which might use AI. 3. Sort examples together. 4. Ask students to explain why they chose each group.",
+    contentJson: { steps: ["Name familiar technology", "Sort examples as a class", "Invite reasoning after each choice", "Close with one careful-use reminder"] },
+    sequenceOrder: 2,
+    accessType: "teacher_only",
+    estimatedMinutes: 15
+  },
+  {
+    id: "preview-section-l1-discussion",
+    lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    sectionCode: "CM-AIL-G1-U1-L1-S3",
+    sectionType: "discussion_prompt",
+    title: "Discussion Prompt",
+    content: "Which of these tools might learn from examples or patterns? Ask students to use the sentence frame: I think it uses AI because...",
+    contentJson: { sentence_frame: "I think it uses AI because..." },
+    sequenceOrder: 3,
+    accessType: "platform_only",
+    estimatedMinutes: 10
+  },
+  {
+    id: "preview-section-l1-assessment",
+    lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    sectionCode: "CM-AIL-G1-U1-L1-S4",
+    sectionType: "assessment_guidance",
+    title: "Assessment Guidance",
+    content: "Look for whether students can name one possible AI example and explain their thinking in simple language.",
+    contentJson: { look_for: ["Names one AI example", "Explains using patterns or examples", "Listens to peer reasoning"] },
+    sequenceOrder: 4,
+    accessType: "teacher_only",
+    estimatedMinutes: 5
+  }
+];
+
+const previewActivities: LessonActivity[] = [
+  {
+    id: "preview-activity-ai-around-us",
+    lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    activityCode: "CM-AIL-G1-U1-L1-A1",
+    title: "AI Around Us Sorting Cards",
+    activityType: "sorting_cards",
+    deliveryMode: DELIVERY_MODES.teacherLed,
+    accessType: "platform_only",
+    isSmartboardReady: true,
+    instructions: "Display cards and sort them as a whole class. Ask students to explain every choice.",
+    activityJson: {
+      prompt: "Sort each example into the group that fits best.",
+      categories: ["AI-powered", "Computer-powered", "Human-powered"],
+      cards: [
+        { label: "Voice assistant", correctCategory: "AI-powered" },
+        { label: "Calculator", correctCategory: "Computer-powered" },
+        { label: "Teacher reading a story", correctCategory: "Human-powered" },
+        { label: "Translation app", correctCategory: "AI-powered" }
+      ]
+    },
+    sequenceOrder: 1
+  }
+];
+
+const previewAssessmentTemplates: AssessmentTemplate[] = [
+  {
+    id: "preview-assessment-template-l1",
+    lessonId: PREVIEW_FIRST_K6_LESSON_ID,
+    templateCode: "CM-AIL-G1-U1-L1-AT1",
+    title: "AI Around Us Class Checklist",
+    description: "Teacher-only class-level checklist aligned to the MVP assessment form.",
+    assessmentType: "class_checklist",
+    criteriaJson: {
+      criteria: [
+        { key: "objective_met", label: "Students named a familiar AI example." },
+        { key: "activity_completed", label: "Class completed the sorting activity." },
+        { key: "students_explained_thinking", label: "Students explained their thinking using simple reasoning." }
+      ]
+    },
+    accessType: "teacher_only",
+    sequenceOrder: 1
   }
 ];
 
@@ -555,7 +863,9 @@ async function getLessonsForGradeBand(gradeBand: GradeBand): Promise<TeacherData
 
   const { data, error } = await supabase
     .from("lessons")
-    .select("id,title,summary,sequence_order,estimated_minutes,grade_band")
+    .select(
+      "id,lesson_code,title,summary,sequence_order,estimated_minutes,duration_minutes,grade_band,grade_level,learning_objectives,essential_question,materials_needed,vocabulary,teacher_prep_notes,content_version"
+    )
     .eq("grade_band", gradeBand)
     .eq("is_active", true)
     .order("sequence_order", { ascending: true });
@@ -577,11 +887,20 @@ async function getLessonsForGradeBand(gradeBand: GradeBand): Promise<TeacherData
   return {
     data: lessonRows.map((lesson) => ({
       id: lesson.id,
+      lessonCode: lesson.lesson_code,
       title: lesson.title,
       summary: lesson.summary ?? "Lesson summary will be added in the curriculum library.",
       sequenceOrder: lesson.sequence_order,
       estimatedMinutes: lesson.estimated_minutes,
-      gradeBand: lesson.grade_band
+      durationMinutes: lesson.duration_minutes,
+      gradeBand: lesson.grade_band,
+      gradeLevel: lesson.grade_level,
+      learningObjectives: lesson.learning_objectives,
+      essentialQuestion: lesson.essential_question,
+      materialsNeeded: lesson.materials_needed,
+      vocabulary: lesson.vocabulary,
+      teacherPrepNotes: lesson.teacher_prep_notes,
+      contentVersion: lesson.content_version
     })),
     mode: "supabase",
     error: null
@@ -611,9 +930,11 @@ export async function getLessonResourcesResult(lessonId: string): Promise<Teache
 
   const { data, error } = await supabase
     .from("lesson_resources")
-    .select("id,lesson_id,resource_type,title,description,file_url,content")
+    .select(
+      "id,lesson_id,resource_code,resource_type,title,description,file_url,content,access_type,visibility,is_printable,is_downloadable,storage_path,mime_type,estimated_pages,display_mode,sort_order"
+    )
     .eq("lesson_id", lessonId)
-    .order("resource_type", { ascending: true });
+    .order("sort_order", { ascending: true });
 
   if (error) {
     warnSupabaseIssue("lesson_resources query failed", error.message);
@@ -633,11 +954,147 @@ export async function getLessonResourcesResult(lessonId: string): Promise<Teache
     data: resourceRows.map((resource) => ({
       id: resource.id,
       lessonId: resource.lesson_id,
+      resourceCode: resource.resource_code,
       resourceType: resource.resource_type,
       title: resource.title,
       description: resource.description,
       fileUrl: resource.file_url,
-      content: resource.content
+      content: resource.content,
+      accessType: resource.access_type,
+      visibility: resource.visibility,
+      isPrintable: resource.is_printable,
+      isDownloadable: resource.is_downloadable,
+      storagePath: resource.storage_path,
+      mimeType: resource.mime_type,
+      estimatedPages: resource.estimated_pages,
+      displayMode: resource.display_mode,
+      sortOrder: resource.sort_order
+    })),
+    mode: "supabase",
+    error: null
+  };
+}
+
+export async function getLessonSectionsResult(lessonId: string): Promise<TeacherDataResult<LessonSection[]>> {
+  const supabase = getSupabaseForTeacherLedFlow("Lesson sections");
+
+  if (!supabase) {
+    return {
+      data: previewSections.filter((section) => section.lessonId === lessonId).sort((a, b) => a.sequenceOrder - b.sequenceOrder),
+      mode: "local_preview",
+      error: null
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("lesson_sections")
+    .select("id,lesson_id,section_code,section_type,title,content,content_json,sequence_order,access_type,estimated_minutes")
+    .eq("lesson_id", lessonId)
+    .order("sequence_order", { ascending: true });
+
+  if (error) {
+    warnSupabaseIssue("lesson_sections query failed", error.message);
+    return { data: [], mode: "supabase", error: `lesson_sections query failed: ${error.message}` };
+  }
+
+  const sectionRows = (data ?? []) as LessonSectionRow[];
+
+  return {
+    data: sectionRows.map((section) => ({
+      id: section.id,
+      lessonId: section.lesson_id,
+      sectionCode: section.section_code,
+      sectionType: section.section_type,
+      title: section.title,
+      content: section.content,
+      contentJson: section.content_json,
+      sequenceOrder: section.sequence_order,
+      accessType: section.access_type,
+      estimatedMinutes: section.estimated_minutes
+    })),
+    mode: "supabase",
+    error: null
+  };
+}
+
+export async function getLessonActivitiesResult(lessonId: string): Promise<TeacherDataResult<LessonActivity[]>> {
+  const supabase = getSupabaseForTeacherLedFlow("Lesson activities");
+
+  if (!supabase) {
+    return {
+      data: previewActivities.filter((activity) => activity.lessonId === lessonId).sort((a, b) => a.sequenceOrder - b.sequenceOrder),
+      mode: "local_preview",
+      error: null
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("activities")
+    .select("id,lesson_id,activity_code,title,activity_type,delivery_mode,access_type,is_smartboard_ready,instructions,activity_json,sequence_order")
+    .eq("lesson_id", lessonId)
+    .order("sequence_order", { ascending: true });
+
+  if (error) {
+    warnSupabaseIssue("activities query failed", error.message);
+    return { data: [], mode: "supabase", error: `activities query failed: ${error.message}` };
+  }
+
+  const activityRows = (data ?? []) as LessonActivityRow[];
+
+  return {
+    data: activityRows.map((activity) => ({
+      id: activity.id,
+      lessonId: activity.lesson_id,
+      activityCode: activity.activity_code,
+      title: activity.title,
+      activityType: activity.activity_type,
+      deliveryMode: activity.delivery_mode,
+      accessType: activity.access_type,
+      isSmartboardReady: activity.is_smartboard_ready,
+      instructions: activity.instructions,
+      activityJson: activity.activity_json,
+      sequenceOrder: activity.sequence_order
+    })),
+    mode: "supabase",
+    error: null
+  };
+}
+
+export async function getAssessmentTemplatesResult(lessonId: string): Promise<TeacherDataResult<AssessmentTemplate[]>> {
+  const supabase = getSupabaseForTeacherLedFlow("Assessment templates");
+
+  if (!supabase) {
+    return {
+      data: previewAssessmentTemplates.filter((template) => template.lessonId === lessonId).sort((a, b) => a.sequenceOrder - b.sequenceOrder),
+      mode: "local_preview",
+      error: null
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("assessment_templates")
+    .select("id,lesson_id,template_code,title,description,assessment_type,criteria_json,access_type,sequence_order")
+    .eq("lesson_id", lessonId)
+    .order("sequence_order", { ascending: true });
+
+  if (error) {
+    warnSupabaseIssue("assessment_templates query failed", error.message);
+    return { data: [], mode: "supabase", error: `assessment_templates query failed: ${error.message}` };
+  }
+
+  const templateRows = (data ?? []) as AssessmentTemplateRow[];
+
+  return {
+    data: templateRows.map((template) => ({
+      id: template.id,
+      lessonId: template.lesson_id,
+      templateCode: template.template_code,
+      title: template.title,
+      description: template.description,
+      assessmentType: template.assessment_type,
+      criteriaJson: template.criteria_json,
+      accessType: template.access_type,
+      sequenceOrder: template.sequence_order
     })),
     mode: "supabase",
     error: null
@@ -662,17 +1119,29 @@ export async function getK6ClassLessonAssessment(classId: string, lessonId: stri
     )
     .eq("class_id", classId)
     .eq("lesson_id", lessonId)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(2);
 
   if (error) {
     warnSupabaseIssue("class_lesson_assessments lookup failed", error.message);
     return { data: null, mode: "supabase", error: `class_lesson_assessments lookup failed: ${error.message}` };
   }
 
-  console.info(`[CONNECTED MENA] class_lesson_assessments lookup returned ${data ? "1 row" : "0 rows"} for class ${classId}, lesson ${lessonId}.`);
+  const rows = (data ?? []) as K6AssessmentRow[];
+
+  console.info(`[CONNECTED MENA] class_lesson_assessments lookup returned ${rows.length} row(s) for class ${classId}, lesson ${lessonId}.`);
+
+  if (rows.length > 1) {
+    warnSupabaseIssue("class_lesson_assessments duplicate rows found", `Expected one current row for class ${classId} and lesson ${lessonId}.`);
+    return {
+      data: mapAssessmentRow(rows[0]),
+      mode: "supabase",
+      error: "Multiple class_lesson_assessments rows were found for this class and lesson. Showing the most recently updated row."
+    };
+  }
 
   return {
-    data: data ? mapAssessmentRow(data as K6AssessmentRow) : null,
+    data: rows[0] ? mapAssessmentRow(rows[0]) : null,
     mode: "supabase",
     error: null
   };

@@ -31,6 +31,15 @@ Then apply the MVP 1 seed:
 supabase/seed_mvp1_teacher_led.sql
 ```
 
+For MVP 2 curriculum content read-model testing, apply the curriculum migration and demo content seed after the MVP 1 files:
+
+```bash
+supabase/migrations/003_curriculum_content_model.sql
+supabase/seed_mvp2_curriculum_content.sql
+```
+
+The MVP 2 seed is demo/sample content only. It uses stable `program_code`, `grade_code`, `unit_code`, `lesson_code`, and related content codes so CONNECTED MENA can replace the demo curriculum later through updated seed/import files without changing the teacher lesson page.
+
 You can run both files from the Supabase SQL editor, or through your preferred Supabase CLI workflow after linking a project. The seed is idempotent and uses fixed demo UUIDs.
 
 The seed creates:
@@ -43,6 +52,16 @@ The seed creates:
 - Three K to Grade 6 lessons
 - Five `lesson_resources` rows
 - One optional sample `class_lesson_assessments` row
+
+The MVP 2 seed adds protected curriculum read-model content:
+
+- One `curriculum_programs` row
+- One `curriculum_grades` row
+- Stable unit and lesson codes on the existing demo unit and lessons
+- `lesson_sections` for platform-rendered lesson flow
+- Structured `activities.activity_json`
+- Printable and platform-only resource classifications
+- `assessment_templates` for teacher-facing checklists
 
 The seed intentionally does not create `student_profiles`, student enrollments, assignment submissions, RLS policies, auth triggers, or Supabase Auth users.
 
