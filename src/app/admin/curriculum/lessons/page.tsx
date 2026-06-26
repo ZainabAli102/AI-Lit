@@ -35,7 +35,7 @@ export default async function AdminCurriculumLessonsPage() {
                 <tr key={lesson.id}>
                   <td className="px-4 py-3">
                     <p className="font-medium text-[#17211c]">{lesson.title}</p>
-                    <p className="text-xs text-[#66746d]">{lesson.lessonCode ?? "No lesson_code"}</p>
+                    <p className="text-xs text-[#66746d]">{lesson.displayCode ?? lesson.lessonCode ?? "No lesson_code"}</p>
                   </td>
                   <td className="px-4 py-3 text-[#66746d]">
                     {GRADE_BAND_LABELS[lesson.gradeBand]}

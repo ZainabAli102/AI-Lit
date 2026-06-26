@@ -35,10 +35,12 @@ For MVP 2 curriculum content read-model testing, apply the curriculum migration 
 
 ```bash
 supabase/migrations/003_curriculum_content_model.sql
+supabase/migrations/004_lesson_material_schema_alignment.sql
 supabase/seed_mvp2_curriculum_content.sql
 ```
 
 The MVP 2 seed is demo/sample content only. It uses stable `program_code`, `grade_code`, `unit_code`, `lesson_code`, and related content codes so CONNECTED MENA can replace the demo curriculum later through updated seed/import files without changing the teacher lesson page.
+`lesson_code` remains the stable platform/import key, while `display_code` stores the short teacher-facing curriculum code such as `G1-01`.
 
 You can run both files from the Supabase SQL editor, or through your preferred Supabase CLI workflow after linking a project. The seed is idempotent and uses fixed demo UUIDs.
 
@@ -58,6 +60,7 @@ The MVP 2 seed adds protected curriculum read-model content:
 - One `curriculum_programs` row
 - One `curriculum_grades` row
 - Stable unit and lesson codes on the existing demo unit and lessons
+- Lesson Material Schema alignment fields such as `display_code`, `alignment_json`, `localization_json`, and `logistics_json`
 - `lesson_sections` for platform-rendered lesson flow
 - Structured `activities.activity_json`
 - Printable and platform-only resource classifications

@@ -19,6 +19,7 @@ export type TeacherClass = {
 export type TeacherLesson = {
   id: string;
   lessonCode: string | null;
+  displayCode: string | null;
   title: string;
   summary: string;
   sequenceOrder: number;
@@ -203,6 +204,7 @@ type ProfileRow = {
 type LessonRow = {
   id: string;
   lesson_code: string | null;
+  display_code: string | null;
   title: string;
   summary: string | null;
   sequence_order: number;
@@ -329,6 +331,7 @@ const previewLessons: TeacherLesson[] = [
   {
     id: PREVIEW_FIRST_K6_LESSON_ID,
     lessonCode: "CM-AIL-G1-U1-L1",
+    displayCode: "G1-01",
     title: "AI Around Us",
     summary: "Teacher-led discussion about where students encounter AI in familiar classroom and home contexts.",
     sequenceOrder: 1,
@@ -346,6 +349,7 @@ const previewLessons: TeacherLesson[] = [
   {
     id: "30000000-0000-4000-8000-000000000002",
     lessonCode: "CM-AIL-G1-U1-L2",
+    displayCode: "G1-02",
     title: "Patterns and Prompts",
     summary: "A simple class activity for noticing patterns and explaining how instructions change an output.",
     sequenceOrder: 2,
@@ -363,6 +367,7 @@ const previewLessons: TeacherLesson[] = [
   {
     id: "30000000-0000-4000-8000-000000000003",
     lessonCode: "CM-AIL-G1-U1-L3",
+    displayCode: "G1-03",
     title: "Kind AI Choices",
     summary: "A teacher-led reflection on helpful, fair, and careful choices when using AI tools.",
     sequenceOrder: 3,
@@ -380,6 +385,7 @@ const previewLessons: TeacherLesson[] = [
   {
     id: "90000000-0000-4000-8000-000000000002",
     lessonCode: null,
+    displayCode: null,
     title: "AI Research Skills",
     summary: "Future student-account lesson for evaluating AI-supported research outputs.",
     sequenceOrder: 1,
@@ -864,7 +870,7 @@ async function getLessonsForGradeBand(gradeBand: GradeBand): Promise<TeacherData
   const { data, error } = await supabase
     .from("lessons")
     .select(
-      "id,lesson_code,title,summary,sequence_order,estimated_minutes,duration_minutes,grade_band,grade_level,learning_objectives,essential_question,materials_needed,vocabulary,teacher_prep_notes,content_version"
+      "id,lesson_code,display_code,title,summary,sequence_order,estimated_minutes,duration_minutes,grade_band,grade_level,learning_objectives,essential_question,materials_needed,vocabulary,teacher_prep_notes,content_version"
     )
     .eq("grade_band", gradeBand)
     .eq("is_active", true)
@@ -888,6 +894,7 @@ async function getLessonsForGradeBand(gradeBand: GradeBand): Promise<TeacherData
     data: lessonRows.map((lesson) => ({
       id: lesson.id,
       lessonCode: lesson.lesson_code,
+      displayCode: lesson.display_code,
       title: lesson.title,
       summary: lesson.summary ?? "Lesson summary will be added in the curriculum library.",
       sequenceOrder: lesson.sequence_order,

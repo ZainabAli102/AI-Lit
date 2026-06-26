@@ -40,15 +40,15 @@ const responseOptions = [
 
 function assessmentMessage(status?: string) {
   if (status === "supabase") {
-    return "Current assessment saved to class_lesson_assessments.";
+    return "Current class assessment saved.";
   }
 
   if (status === "local_preview") {
-    return "Assessment captured in local preview mode. It will write to class_lesson_assessments when Supabase is configured.";
+    return "Assessment captured in local preview mode.";
   }
 
   if (status === "error") {
-    return "Assessment could not be saved. Check the Supabase table constraints and try again.";
+    return "Assessment could not be saved. Check the form and try again.";
   }
 
   return null;
@@ -217,6 +217,10 @@ function AssessmentCriteria({ value }: { value: unknown }) {
 }
 
 function AccessBadge({ value }: { value: string }) {
+  if (value === "platform_only") {
+    return null;
+  }
+
   return (
     <span className="rounded-md border border-[#cad6cf] bg-white px-2 py-1 text-xs font-semibold text-[#42514a]">
       {accessTypeLabel(value)}
@@ -229,6 +233,8 @@ function EmptyState({ children }: { children: string }) {
 }
 
 function LessonSectionCard({ section }: { section: LessonSection }) {
+  const hasStructuredSteps = isRecord(section.contentJson) && stringArray(section.contentJson.steps).length > 0;
+
   return (
     <article className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -238,7 +244,7 @@ function LessonSectionCard({ section }: { section: LessonSection }) {
         </div>
         <AccessBadge value={section.accessType} />
       </div>
-      {section.content ? <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#42514a]">{section.content}</p> : null}
+      {section.content && !hasStructuredSteps ? <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#42514a]">{section.content}</p> : null}
       <TeacherContentDetails value={section.contentJson} />
       {section.estimatedMinutes ? <p className="mt-3 text-xs font-semibold text-[#66746d]">{section.estimatedMinutes} minutes</p> : null}
     </article>
@@ -256,7 +262,7 @@ function ActivityCard({ activity }: { activity: LessonActivity }) {
         <div className="flex flex-wrap gap-2">
           <AccessBadge value={activity.accessType} />
           {activity.isSmartboardReady ? (
-            <span className="rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-2 py-1 text-xs font-semibold text-[#0b4d4f]">Smartboard-ready</span>
+            <span className="rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-2 py-1 text-xs font-semibold text-[#0b4d4f]">Smartboard Activity</span>
           ) : null}
         </div>
       </div>
@@ -267,6 +273,8 @@ function ActivityCard({ activity }: { activity: LessonActivity }) {
 }
 
 function ResourceCard({ resource }: { resource: LessonResource }) {
+  const shouldShowPrintableBadge = resource.isPrintable || resource.accessType === "printable";
+
   return (
     <article className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -275,18 +283,16 @@ function ResourceCard({ resource }: { resource: LessonResource }) {
           <h3 className="mt-1 text-base font-semibold text-[#17211c]">{resource.title}</h3>
         </div>
         <div className="flex flex-wrap gap-2">
-          <AccessBadge value={resource.accessType} />
-          {resource.isPrintable ? <span className="rounded-md border border-[#d7c49a] bg-[#fff8e8] px-2 py-1 text-xs font-semibold text-[#6d4c11]">Printable</span> : null}
+          {resource.accessType !== "printable" ? <AccessBadge value={resource.accessType} /> : null}
+          {shouldShowPrintableBadge ? <span className="rounded-md border border-[#d7c49a] bg-[#fff8e8] px-2 py-1 text-xs font-semibold text-[#6d4c11]">Printable</span> : null}
           {resource.isDownloadable ? <span className="rounded-md border border-[#cad6cf] bg-white px-2 py-1 text-xs font-semibold text-[#42514a]">Downloadable</span> : null}
         </div>
       </div>
       {resource.description ? <p className="mt-3 text-sm leading-6 text-[#66746d]">{resource.description}</p> : null}
       {resource.content ? <p className="mt-3 rounded-md bg-white p-3 text-sm leading-6 text-[#42514a]">{resource.content}</p> : null}
       {resource.fileUrl && resource.isDownloadable ? <p className="mt-3 text-sm font-semibold text-[#0b4d4f]">{resource.fileUrl}</p> : null}
-      {resource.isPrintable ? (
-        <p className="mt-3 text-xs font-semibold text-[#66746d]">
-          Printable classroom material{resource.estimatedPages ? ` - ${resource.estimatedPages} page(s)` : ""}. Downloadable: {resource.isDownloadable ? "yes" : "no"}.
-        </p>
+      {shouldShowPrintableBadge ? (
+        <p className="mt-3 text-xs font-semibold text-[#66746d]">{resource.estimatedPages ? `${resource.estimatedPages} page${resource.estimatedPages === 1 ? "" : "s"} · ` : ""}Classroom material</p>
       ) : null}
     </article>
   );
@@ -375,8 +381,8 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
   if (!classInfo) {
     return (
       <Layout>
-        <PageHeader description="The requested class was not returned from Supabase or preview data." eyebrow="Teacher workspace" title="Class not found." />
-        <DashboardCard description={classResult.error ?? `No class found for id ${classId}.`} eyebrow={classResult.mode} title="Class lookup failed" />
+        <PageHeader description="The requested class is not available for this teacher workspace." eyebrow="Teacher workspace" title="Class not found." />
+        <DashboardCard description="Return to your class list and open an assigned K to Grade 6 class." title="Class unavailable" />
       </Layout>
     );
   }
@@ -394,20 +400,19 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
             </Button>
           </>
         }
-        description={lesson?.summary ?? "Lesson detail for K to Grade 6 teacher-led class delivery."}
+        description={lesson?.summary ?? "Lesson materials are not available for this class yet."}
         eyebrow={classInfo ? `${classInfo.name} - ${GRADE_BAND_LABELS[classInfo.gradeBand]} - ${DELIVERY_MODE_LABELS[classInfo.deliveryMode]}` : "Teacher workspace"}
-        title={lesson?.title ?? decodeURIComponent(lessonId)}
+        title={lesson?.title ?? "Lesson not found"}
       />
 
       {message ? (
         <div className="rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-4 py-3 text-sm font-semibold text-[#0b4d4f]">{message}</div>
       ) : null}
 
-      {classResult.error || sectionsResult.error || activitiesResult.error || resourcesResult.error || assessmentTemplatesResult.error || assessmentResult.error ? (
+      {sectionsResult.error || activitiesResult.error || resourcesResult.error || assessmentTemplatesResult.error ? (
         <DashboardCard
-          description={[classResult.error, sectionsResult.error, activitiesResult.error, resourcesResult.error, assessmentTemplatesResult.error, assessmentResult.error].filter(Boolean).join(" ")}
-          eyebrow={classResult.mode}
-          title="Supabase query notice"
+          description="Some lesson materials could not be loaded. You can still review the visible lesson content and use the class assessment form."
+          title="Lesson materials partially unavailable"
         />
       ) : null}
 
@@ -419,7 +424,7 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
       ) : null}
 
       <section className="space-y-6">
-        <DashboardCard eyebrow={lesson?.lessonCode ?? "lesson"} title="1. Lesson Overview">
+        <DashboardCard eyebrow={lesson?.displayCode ?? lesson?.lessonCode ?? "lesson"} title="1. Lesson Overview">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <div className="space-y-4">
               <div>
@@ -479,24 +484,24 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
           </div>
         </DashboardCard>
 
-        <DashboardCard eyebrow="lesson_sections" title="3. Lesson Flow">
+        <DashboardCard eyebrow="teaching sequence" title="3. Lesson Flow">
           <div className="grid gap-3">
             {lessonFlowSections.length > 0 ? (
               lessonFlowSections.map((section) => <LessonSectionCard key={section.id} section={section} />)
             ) : (
-              <EmptyState>No lesson flow sections were found. Add lesson_flow, guided_activity, or discussion_prompt sections through the MVP 2 seed/import process.</EmptyState>
+              <EmptyState>No teaching sequence has been added yet.</EmptyState>
             )}
           </div>
         </DashboardCard>
 
-        <DashboardCard eyebrow="activities" title="4. Smartboard Activity">
+        <DashboardCard eyebrow="class activity" title="4. Smartboard Activity">
           <div className="grid gap-3">
             {smartboardActivities.length > 0 ? (
               smartboardActivities.map((activity) => <ActivityCard activity={activity} key={activity.id} />)
             ) : activities.length > 0 ? (
               activities.map((activity) => <ActivityCard activity={activity} key={activity.id} />)
             ) : (
-              <EmptyState>No structured activities have been added yet.</EmptyState>
+              <EmptyState>No smartboard activity has been added yet.</EmptyState>
             )}
           </div>
         </DashboardCard>
@@ -511,7 +516,7 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
           </DashboardCard>
         ) : null}
 
-        <DashboardCard eyebrow="printable" title="6. Printable Classroom Materials">
+        <DashboardCard eyebrow="classroom materials" title="6. Printable Classroom Materials">
           <div className="grid gap-3">
             {printableResources.length > 0 ? (
               printableResources.map((resource) => <ResourceCard key={resource.id} resource={resource} />)
@@ -522,7 +527,7 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
         </DashboardCard>
 
         {downloadableResources.length > 0 ? (
-          <DashboardCard eyebrow="downloadable" title="Downloadable Resources">
+          <DashboardCard eyebrow="classroom files" title="Downloadable Resources">
             <div className="grid gap-3">
               {downloadableResources.map((resource) => (
                 <ResourceCard key={resource.id} resource={resource} />
@@ -544,7 +549,7 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
           </div>
         </DashboardCard>
 
-        <DashboardCard eyebrow="class_lesson_assessments" title="8. Class Assessment Form">
+        <DashboardCard eyebrow="class-level assessment" title="8. Class Assessment Form">
           {existingAssessment ? (
             <div className="mb-4 rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-4 py-3 text-sm text-[#0b4d4f]">
               Current assessment loaded. Last saved {new Date(existingAssessment.updatedAt).toLocaleString()}.

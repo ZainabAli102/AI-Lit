@@ -23,6 +23,7 @@ export type CurriculumProgramSummary = {
 export type CurriculumLessonListItem = {
   id: string;
   lessonCode: string | null;
+  displayCode: string | null;
   title: string;
   summary: string | null;
   gradeBand: GradeBand;
@@ -34,6 +35,11 @@ export type CurriculumLessonListItem = {
 };
 
 export type CurriculumLessonDetail = CurriculumLessonListItem & {
+  anchorTheme: string | null;
+  toolUseStatus: string | null;
+  iCanStatement: string | null;
+  studentChallenge: string | null;
+  studentOutput: string | null;
   essentialQuestion: string | null;
   learningObjectives: string | null;
   materialsNeeded: string | null;
@@ -104,6 +110,7 @@ type UnitRow = {
 type LessonRow = {
   id: string;
   lesson_code: string | null;
+  display_code: string | null;
   title: string;
   summary: string | null;
   grade_band: GradeBand;
@@ -112,6 +119,11 @@ type LessonRow = {
   status: string;
   content_version: string;
   curriculum_unit_id: string;
+  anchor_theme: string | null;
+  tool_use_status: string | null;
+  i_can_statement: string | null;
+  student_challenge: string | null;
+  student_output: string | null;
   essential_question: string | null;
   learning_objectives: string | null;
   materials_needed: string | null;
@@ -178,6 +190,7 @@ const previewLessons: CurriculumLessonListItem[] = [
   {
     id: "30000000-0000-4000-8000-000000000001",
     lessonCode: "CM-AIL-G1-U1-L1",
+    displayCode: "G1-01",
     title: "AI Around Us",
     summary: "Teacher-led discussion about where students encounter AI in familiar classroom and home contexts.",
     gradeBand: "k_to_6",
@@ -191,6 +204,11 @@ const previewLessons: CurriculumLessonListItem[] = [
 
 const previewLessonDetail: CurriculumLessonDetail = {
   ...previewLessons[0],
+  anchorTheme: "AI in familiar places",
+  toolUseStatus: "teacher_led_demo",
+  iCanStatement: "I can name a tool that might use AI and explain my thinking.",
+  studentChallenge: "Sort familiar examples and decide which ones might use AI.",
+  studentOutput: "Class sorting discussion and optional reflection drawing.",
   essentialQuestion: "Where do we see AI around us?",
   learningObjectives: "Students identify familiar AI-powered tools and explain that AI can use patterns or data to help people.",
   materialsNeeded: "Smartboard, sorting cards, teacher checklist, optional printable reflection sheet.",
@@ -267,6 +285,7 @@ function mapLesson(row: LessonRow, units: UnitRow[]): CurriculumLessonListItem {
   return {
     id: row.id,
     lessonCode: row.lesson_code,
+    displayCode: row.display_code,
     title: row.title,
     summary: row.summary,
     gradeBand: row.grade_band,
@@ -318,7 +337,7 @@ export async function getCurriculumLessonsResult(): Promise<CurriculumDataResult
   const { data: lessons, error: lessonsError } = await supabase
     .from("lessons")
     .select(
-      "id,lesson_code,title,summary,grade_band,grade_level,sequence_order,status,content_version,curriculum_unit_id,essential_question,learning_objectives,materials_needed,vocabulary,teacher_prep_notes"
+      "id,lesson_code,display_code,title,summary,grade_band,grade_level,sequence_order,status,content_version,curriculum_unit_id,anchor_theme,tool_use_status,i_can_statement,student_challenge,student_output,essential_question,learning_objectives,materials_needed,vocabulary,teacher_prep_notes"
     )
     .eq("grade_band", "k_to_6")
     .order("grade_level", { ascending: true })
@@ -359,7 +378,7 @@ export async function getCurriculumLessonDetailResult(lessonId: string): Promise
   const { data: lesson, error: lessonError } = await supabase
     .from("lessons")
     .select(
-      "id,lesson_code,title,summary,grade_band,grade_level,sequence_order,status,content_version,curriculum_unit_id,essential_question,learning_objectives,materials_needed,vocabulary,teacher_prep_notes"
+      "id,lesson_code,display_code,title,summary,grade_band,grade_level,sequence_order,status,content_version,curriculum_unit_id,anchor_theme,tool_use_status,i_can_statement,student_challenge,student_output,essential_question,learning_objectives,materials_needed,vocabulary,teacher_prep_notes"
     )
     .eq("id", lessonId)
     .maybeSingle();
@@ -410,6 +429,11 @@ export async function getCurriculumLessonDetailResult(lessonId: string): Promise
   return {
     data: {
       ...listItem,
+      anchorTheme: lessonRow.anchor_theme,
+      toolUseStatus: lessonRow.tool_use_status,
+      iCanStatement: lessonRow.i_can_statement,
+      studentChallenge: lessonRow.student_challenge,
+      studentOutput: lessonRow.student_output,
       essentialQuestion: lessonRow.essential_question,
       learningObjectives: lessonRow.learning_objectives,
       materialsNeeded: lessonRow.materials_needed,

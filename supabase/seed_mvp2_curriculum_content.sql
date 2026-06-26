@@ -55,9 +55,46 @@ where id = '20000000-0000-4000-8000-000000000001';
 
 update public.lessons
 set lesson_code = 'CM-AIL-G1-U1-L1',
+    display_code = 'G1-01',
+    anchor_theme = 'AI in familiar places',
+    tool_use_status = 'teacher_led_demo',
     grade_level = 1,
     learning_objectives = 'Students identify familiar AI-powered tools and explain that AI can use patterns or data to help people.',
+    i_can_statement = 'I can name a tool that might use AI and explain my thinking.',
     essential_question = 'Where do we see AI around us?',
+    student_challenge = 'Sort familiar examples and decide which ones might use AI.',
+    student_output = 'Class sorting discussion and optional reflection drawing.',
+    success_criteria_json = '{
+      "criteria":[
+        "Names one familiar tool that might use AI",
+        "Explains the choice using simple pattern or data language",
+        "Listens to classmates and revises thinking when needed"
+      ]
+    }'::jsonb,
+    alignment_json = '{
+      "core_ai_concepts":["AI can use data or examples","AI appears in everyday tools"],
+      "skeleton_threads":[{"thread":"Patterns and data","level":"early_primary"}],
+      "competency_focus":["recognize_ai_examples","explain_reasoning"],
+      "external_framework_tags":["AI literacy foundations"],
+      "builds_on":[],
+      "leads_to":["CM-AIL-G1-U1-L2"]
+    }'::jsonb,
+    localization_json = '{
+      "mena_context":"Use examples familiar to school, home, translation, and classroom technology in the region.",
+      "language_integration":"Invite students to explain in their strongest classroom language before sharing in English.",
+      "vocabulary":[
+        {"term":"AI","arabic":"الذكاء الاصطناعي","kurdish":"زیرەکی دەستکرد"},
+        {"term":"pattern","arabic":"نمط","kurdish":"شێواز"}
+      ],
+      "read_aloud_note":"Read examples slowly and check that students understand each tool before sorting."
+    }'::jsonb,
+    logistics_json = '{
+      "room_setup":"Whole-class circle or carpet discussion facing the smartboard.",
+      "grouping":"Whole class with brief pair talk.",
+      "tool_setup":"Open the smartboard sorting activity before the lesson.",
+      "data_privacy_setup":"Use generic examples only. Do not ask students to share personal account details.",
+      "materials_manifest":["smartboard","sorting cards","optional reflection sheet"]
+    }'::jsonb,
     materials_needed = 'Smartboard, sorting cards, teacher checklist, optional printable reflection sheet.',
     vocabulary = 'AI, pattern, data, tool, choice',
     teacher_prep_notes = 'Use familiar classroom and home examples. Avoid implying every computer is AI.',
@@ -68,9 +105,46 @@ where id = '30000000-0000-4000-8000-000000000001';
 
 update public.lessons
 set lesson_code = 'CM-AIL-G1-U1-L2',
+    display_code = 'G1-02',
+    anchor_theme = 'Patterns and instructions',
+    tool_use_status = 'teacher_led_demo',
     grade_level = 1,
     learning_objectives = 'Students complete simple patterns and explain how instructions can change an output.',
+    i_can_statement = 'I can find a pattern and explain what should come next.',
     essential_question = 'How do patterns help us make predictions?',
+    student_challenge = 'Predict what comes next in a pattern and explain the rule.',
+    student_output = 'Class pattern explanation and pair worksheet.',
+    success_criteria_json = '{
+      "criteria":[
+        "Completes a simple visual pattern",
+        "Explains the pattern rule aloud",
+        "Connects clear instructions to expected output"
+      ]
+    }'::jsonb,
+    alignment_json = '{
+      "core_ai_concepts":["Patterns help systems make predictions","Instructions affect outputs"],
+      "skeleton_threads":[{"thread":"Patterns and prediction","level":"early_primary"}],
+      "competency_focus":["pattern_recognition","explain_rules"],
+      "external_framework_tags":["AI literacy foundations"],
+      "builds_on":["CM-AIL-G1-U1-L1"],
+      "leads_to":["CM-AIL-G1-U1-L3"]
+    }'::jsonb,
+    localization_json = '{
+      "mena_context":"Use classroom colors, shapes, and familiar daily routines as pattern examples.",
+      "language_integration":"Let students describe pattern rules orally before writing or drawing.",
+      "vocabulary":[
+        {"term":"pattern","arabic":"نمط","kurdish":"شێواز"},
+        {"term":"instruction","arabic":"تعليمة","kurdish":"ڕێنمایی"}
+      ],
+      "read_aloud_note":"Model one sentence frame: The pattern is... so next I think..."
+    }'::jsonb,
+    logistics_json = '{
+      "room_setup":"Students can sit in pairs with a clear view of the board.",
+      "grouping":"Whole-class modeling followed by pairs.",
+      "tool_setup":"Prepare two visible pattern examples.",
+      "data_privacy_setup":"No accounts or student data are required.",
+      "materials_manifest":["pattern cards","counters or drawings","pair worksheet"]
+    }'::jsonb,
     materials_needed = 'Pattern cards, counters or drawings, printable pair worksheet.',
     vocabulary = 'pattern, prompt, instruction, output',
     teacher_prep_notes = 'Prepare one visible class pattern and one incomplete pattern for pair talk.',
@@ -81,9 +155,46 @@ where id = '30000000-0000-4000-8000-000000000002';
 
 update public.lessons
 set lesson_code = 'CM-AIL-G1-U1-L3',
+    display_code = 'G1-03',
+    anchor_theme = 'Kind and careful AI choices',
+    tool_use_status = 'teacher_led_demo',
     grade_level = 1,
     learning_objectives = 'Students describe kind, careful choices when using AI-supported tools.',
+    i_can_statement = 'I can describe one kind and careful choice when using technology.',
     essential_question = 'How can we make careful choices with AI?',
+    student_challenge = 'Choose careful responses to simple classroom AI scenarios.',
+    student_output = 'Class scenario discussion and closing reflection sentence.',
+    success_criteria_json = '{
+      "criteria":[
+        "Names one careful choice",
+        "Explains why asking an adult can help",
+        "Uses kind and fair language during discussion"
+      ]
+    }'::jsonb,
+    alignment_json = '{
+      "core_ai_concepts":["AI use involves choices","People should check before sharing private information"],
+      "skeleton_threads":[{"thread":"Responsible use","level":"early_primary"}],
+      "competency_focus":["responsible_ai_use","privacy_awareness"],
+      "external_framework_tags":["AI literacy foundations","digital citizenship"],
+      "builds_on":["CM-AIL-G1-U1-L2"],
+      "leads_to":[]
+    }'::jsonb,
+    localization_json = '{
+      "mena_context":"Use school and family guidance examples that fit local classroom expectations.",
+      "language_integration":"Invite students to name careful choices in English, Arabic, Kurdish, or the classroom language.",
+      "vocabulary":[
+        {"term":"private","arabic":"خاص","kurdish":"تایبەت"},
+        {"term":"careful","arabic":"حذر","kurdish":"ئاگادار"}
+      ],
+      "read_aloud_note":"Pause after each scenario and ask what students should do first."
+    }'::jsonb,
+    logistics_json = '{
+      "room_setup":"Whole-class discussion with scenario cards visible.",
+      "grouping":"Whole class with turn-and-talk.",
+      "tool_setup":"No student devices or accounts required.",
+      "data_privacy_setup":"Do not collect student personal information. Use fictional scenarios only.",
+      "materials_manifest":["scenario cards","class reflection prompt","teacher checklist"]
+    }'::jsonb,
     materials_needed = 'Scenario cards, class reflection prompt, teacher checklist.',
     vocabulary = 'kind, careful, fair, private, ask an adult',
     teacher_prep_notes = 'Keep scenarios age-appropriate and focused on classroom behavior.',

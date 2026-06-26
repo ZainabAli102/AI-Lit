@@ -431,8 +431,11 @@ export type Database = {
       };
       lessons: {
         Row: {
+          alignment_json: Json;
+          anchor_theme: string | null;
           content_version: string;
           created_at: string;
+          display_code: string | null;
           duration_minutes: number | null;
           essential_question: string | null;
           curriculum_unit_id: string;
@@ -440,21 +443,31 @@ export type Database = {
           grade_band: Database["public"]["Enums"]["grade_band"];
           grade_level: number | null;
           id: string;
+          i_can_statement: string | null;
           is_active: boolean;
           learning_objectives: string | null;
           lesson_code: string | null;
+          localization_json: Json;
+          logistics_json: Json;
           materials_needed: string | null;
           sequence_order: number;
           status: string;
+          student_challenge: string | null;
+          student_output: string | null;
           summary: string | null;
+          success_criteria_json: Json;
           teacher_prep_notes: string | null;
           title: string;
+          tool_use_status: string | null;
           updated_at: string;
           vocabulary: string | null;
         };
         Insert: {
+          alignment_json?: Json;
+          anchor_theme?: string | null;
           content_version?: string;
           created_at?: string;
+          display_code?: string | null;
           duration_minutes?: number | null;
           essential_question?: string | null;
           curriculum_unit_id: string;
@@ -462,21 +475,31 @@ export type Database = {
           grade_band: Database["public"]["Enums"]["grade_band"];
           grade_level?: number | null;
           id?: string;
+          i_can_statement?: string | null;
           is_active?: boolean;
           learning_objectives?: string | null;
           lesson_code?: string | null;
+          localization_json?: Json;
+          logistics_json?: Json;
           materials_needed?: string | null;
           sequence_order?: number;
           status?: string;
+          student_challenge?: string | null;
+          student_output?: string | null;
           summary?: string | null;
+          success_criteria_json?: Json;
           teacher_prep_notes?: string | null;
           title: string;
+          tool_use_status?: string | null;
           updated_at?: string;
           vocabulary?: string | null;
         };
         Update: {
+          alignment_json?: Json;
+          anchor_theme?: string | null;
           content_version?: string;
           created_at?: string;
+          display_code?: string | null;
           duration_minutes?: number | null;
           essential_question?: string | null;
           curriculum_unit_id?: string;
@@ -484,15 +507,22 @@ export type Database = {
           grade_band?: Database["public"]["Enums"]["grade_band"];
           grade_level?: number | null;
           id?: string;
+          i_can_statement?: string | null;
           is_active?: boolean;
           learning_objectives?: string | null;
           lesson_code?: string | null;
+          localization_json?: Json;
+          logistics_json?: Json;
           materials_needed?: string | null;
           sequence_order?: number;
           status?: string;
+          student_challenge?: string | null;
+          student_output?: string | null;
           summary?: string | null;
+          success_criteria_json?: Json;
           teacher_prep_notes?: string | null;
           title?: string;
+          tool_use_status?: string | null;
           updated_at?: string;
           vocabulary?: string | null;
         };
@@ -1024,7 +1054,20 @@ export type Database = {
         | "reflection"
         | "differentiation"
         | "extension"
-        | "assessment_guidance";
+        | "assessment_guidance"
+        | "hook_opening"
+        | "movement_play_notes"
+        | "worked_example"
+        | "tool_platform_setup"
+        | "data_privacy_setup"
+        | "design_intent"
+        | "misconceptions_pitfalls"
+        | "safety_policy_notes"
+        | "academic_integrity_note"
+        | "ai_use_disclosure"
+        | "mena_contextualization"
+        | "language_integration"
+        | "family_home_connection";
       lesson_resource_type:
         | "teacher_guide"
         | "worksheet"
