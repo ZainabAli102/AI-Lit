@@ -251,7 +251,9 @@ function LessonSectionCard({ section }: { section: LessonSection }) {
   );
 }
 
-function ActivityCard({ activity }: { activity: LessonActivity }) {
+function ActivityCard({ activity, classId, lessonId }: { activity: LessonActivity; classId: string; lessonId: string }) {
+  const smartboardHref = `/teacher/smartboard/${activity.id}?classId=${encodeURIComponent(classId)}&lessonId=${encodeURIComponent(lessonId)}`;
+
   return (
     <article className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -268,6 +270,13 @@ function ActivityCard({ activity }: { activity: LessonActivity }) {
       </div>
       {activity.instructions ? <p className="mt-3 text-sm leading-6 text-[#42514a]">{activity.instructions}</p> : null}
       <ActivityDetails activityType={activity.activityType} value={activity.activityJson} />
+      {activity.isSmartboardReady ? (
+        <div className="mt-4">
+          <Button href={smartboardHref} icon={<MonitorUp aria-hidden="true" className="h-4 w-4" />}>
+            Open Smartboard Activity
+          </Button>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -292,7 +301,11 @@ function ResourceCard({ resource }: { resource: LessonResource }) {
       {resource.content ? <p className="mt-3 rounded-md bg-white p-3 text-sm leading-6 text-[#42514a]">{resource.content}</p> : null}
       {resource.fileUrl && resource.isDownloadable ? <p className="mt-3 text-sm font-semibold text-[#0b4d4f]">{resource.fileUrl}</p> : null}
       {shouldShowPrintableBadge ? (
-        <p className="mt-3 text-xs font-semibold text-[#66746d]">{resource.estimatedPages ? `${resource.estimatedPages} page${resource.estimatedPages === 1 ? "" : "s"} · ` : ""}Classroom material</p>
+        <p className="mt-3 text-xs font-semibold text-[#66746d]">
+          {resource.estimatedPages ? `${resource.estimatedPages} page${resource.estimatedPages === 1 ? "" : "s"} ` : ""}
+          {resource.estimatedPages ? <span aria-hidden="true">&middot; </span> : null}
+          Classroom material
+        </p>
       ) : null}
     </article>
   );
@@ -373,6 +386,7 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
   const existingAssessment = assessmentResult.data;
   const message = assessmentMessage(assessment);
   const isK6TeacherLed = classInfo?.gradeBand === "k_to_6" && classInfo.deliveryMode === "teacher_led";
+  const firstSmartboardActivity = smartboardActivities[0];
   const objectiveMet = existingAssessment?.objectiveMet ?? "partly";
   const activityCompleted = existingAssessment?.activityCompleted ?? "partly";
   const studentsExplainedThinking = existingAssessment?.studentsExplainedThinking ?? "partly";
@@ -395,9 +409,11 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
             <Button href={`/teacher/classes/${classId}?${teacherQuery}`} icon={<ArrowLeft aria-hidden="true" className="h-4 w-4" />} variant="secondary">
               Class
             </Button>
-            <Button href="/teacher/smartboard/sample-activity" icon={<MonitorUp aria-hidden="true" className="h-4 w-4" />}>
-              Smartboard
-            </Button>
+            {firstSmartboardActivity ? (
+              <Button href={`/teacher/smartboard/${firstSmartboardActivity.id}?classId=${encodeURIComponent(classId)}&lessonId=${encodeURIComponent(lessonId)}`} icon={<MonitorUp aria-hidden="true" className="h-4 w-4" />}>
+                Smartboard
+              </Button>
+            ) : null}
           </>
         }
         description={lesson?.summary ?? "Lesson materials are not available for this class yet."}
@@ -497,9 +513,9 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
         <DashboardCard eyebrow="class activity" title="4. Smartboard Activity">
           <div className="grid gap-3">
             {smartboardActivities.length > 0 ? (
-              smartboardActivities.map((activity) => <ActivityCard activity={activity} key={activity.id} />)
+              smartboardActivities.map((activity) => <ActivityCard activity={activity} classId={classId} key={activity.id} lessonId={lessonId} />)
             ) : activities.length > 0 ? (
-              activities.map((activity) => <ActivityCard activity={activity} key={activity.id} />)
+              activities.map((activity) => <ActivityCard activity={activity} classId={classId} key={activity.id} lessonId={lessonId} />)
             ) : (
               <EmptyState>No smartboard activity has been added yet.</EmptyState>
             )}
