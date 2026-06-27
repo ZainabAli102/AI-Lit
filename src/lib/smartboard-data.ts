@@ -32,25 +32,54 @@ type ActivityRow = {
   activity_json: Json;
 };
 
-const previewSmartboardActivity: SmartboardActivity = {
-  id: "preview-activity-ai-around-us",
-  title: "AI Around Us Sorting Cards",
-  activityType: "sorting_cards",
-  deliveryMode: "teacher_led",
-  accessType: "platform_only",
-  isSmartboardReady: true,
-  instructions: "Display cards and sort them as a whole class. Ask students to explain every choice.",
-  activityJson: {
-    prompt: "Sort each example into the group that fits best.",
-    categories: ["AI-powered", "Computer-powered", "Human-powered"],
-    cards: [
-      { label: "Voice assistant", correctCategory: "AI-powered" },
-      { label: "Calculator", correctCategory: "Computer-powered" },
-      { label: "Teacher reading a story", correctCategory: "Human-powered" },
-      { label: "Translation app", correctCategory: "AI-powered" }
-    ]
+const previewSmartboardActivities: SmartboardActivity[] = [
+  {
+    id: "preview-activity-ai-around-us",
+    title: "AI Around Us Sorting Cards",
+    activityType: "sorting_cards",
+    deliveryMode: "teacher_led",
+    accessType: "platform_only",
+    isSmartboardReady: true,
+    instructions: "Display cards and sort them as a whole class. Ask students to explain every choice.",
+    activityJson: {
+      prompt: "Sort each example into the group that fits best.",
+      categories: ["AI-powered", "Computer-powered", "Human-powered"],
+      cards: [
+        { label: "Voice assistant", correctCategory: "AI-powered" },
+        { label: "Calculator", correctCategory: "Computer-powered" },
+        { label: "Teacher reading a story", correctCategory: "Human-powered" },
+        { label: "Translation app", correctCategory: "AI-powered" }
+      ]
+    }
+  },
+  {
+    id: "preview-activity-matching-ai-around-us",
+    title: "Match Tools to What They Do",
+    activityType: "matching_cards",
+    deliveryMode: "teacher_led",
+    accessType: "platform_only",
+    isSmartboardReady: true,
+    instructions: "Match each tool to what it does, then ask students to explain why the match fits.",
+    activityJson: {
+      prompt: "Match each example to what it does.",
+      leftItems: [
+        { id: "voice-assistant", label: "Voice assistant" },
+        { id: "calculator", label: "Calculator" },
+        { id: "translation-app", label: "Translation app" }
+      ],
+      rightItems: [
+        { id: "answers-questions", label: "Answers spoken questions" },
+        { id: "does-arithmetic", label: "Does arithmetic" },
+        { id: "changes-language", label: "Changes words into another language" }
+      ],
+      matches: [
+        { leftId: "voice-assistant", rightId: "answers-questions" },
+        { leftId: "calculator", rightId: "does-arithmetic" },
+        { leftId: "translation-app", rightId: "changes-language" }
+      ]
+    }
   }
-};
+];
 
 let didWarnAboutPreviewMode = false;
 
@@ -90,10 +119,12 @@ export async function getSmartboardActivityResult(activityId: string): Promise<S
   const supabase = getSupabaseForSmartboard(`activity ${activityId}`);
 
   if (!supabase) {
+    const previewSmartboardActivity = previewSmartboardActivities.find((activity) => activity.id === activityId) ?? null;
+
     return {
-      data: previewSmartboardActivity.id === activityId ? previewSmartboardActivity : null,
+      data: previewSmartboardActivity,
       mode: "local_preview",
-      error: previewSmartboardActivity.id === activityId ? null : "Activity not found."
+      error: previewSmartboardActivity ? null : "Activity not found."
     };
   }
 

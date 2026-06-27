@@ -1,5 +1,6 @@
 import { DashboardCard } from "@/components/DashboardCard";
 import { Layout } from "@/components/Layout";
+import { MatchingCardsSmartboard } from "@/components/MatchingCardsSmartboard";
 import { PageHeader } from "@/components/PageHeader";
 import { SortingCardsSmartboard } from "@/components/SortingCardsSmartboard";
 import { getSmartboardActivityResult, type SmartboardActivity } from "@/lib/smartboard-data";
@@ -26,6 +27,23 @@ type SortingCardsConfig = {
   prompt: string;
   categories: string[];
   cards: SortingCard[];
+};
+
+type MatchItem = {
+  id: string;
+  label: string;
+};
+
+type MatchPair = {
+  leftId: string;
+  rightId: string;
+};
+
+type MatchingCardsConfig = {
+  prompt: string;
+  leftItems: MatchItem[];
+  rightItems: MatchItem[];
+  matches: MatchPair[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -75,6 +93,72 @@ function parseSortingCardsConfig(activity: SmartboardActivity): SortingCardsConf
   };
 }
 
+function parseMatchItems(value: unknown): MatchItem[] {
+  const items: MatchItem[] = [];
+
+  if (!Array.isArray(value)) {
+    return items;
+  }
+
+  value.forEach((item) => {
+    if (!isRecord(item)) {
+      return;
+    }
+
+    const id = typeof item.id === "string" ? item.id : null;
+    const label = typeof item.label === "string" ? item.label : null;
+
+    if (!id || !label) {
+      return;
+    }
+
+    items.push({ id, label });
+  });
+
+  return items;
+}
+
+function parseMatchingCardsConfig(activity: SmartboardActivity): MatchingCardsConfig | null {
+  if (!isRecord(activity.activityJson)) {
+    return null;
+  }
+
+  const prompt = typeof activity.activityJson.prompt === "string" ? activity.activityJson.prompt : "Match each card to the best partner.";
+  const leftItems = parseMatchItems(activity.activityJson.leftItems);
+  const rightItems = parseMatchItems(activity.activityJson.rightItems);
+  const rightIds = new Set(rightItems.map((item) => item.id));
+  const leftIds = new Set(leftItems.map((item) => item.id));
+  const matches: MatchPair[] = [];
+
+  if (Array.isArray(activity.activityJson.matches)) {
+    activity.activityJson.matches.forEach((match) => {
+      if (!isRecord(match)) {
+        return;
+      }
+
+      const leftId = typeof match.leftId === "string" ? match.leftId : null;
+      const rightId = typeof match.rightId === "string" ? match.rightId : null;
+
+      if (!leftId || !rightId || !leftIds.has(leftId) || !rightIds.has(rightId)) {
+        return;
+      }
+
+      matches.push({ leftId, rightId });
+    });
+  }
+
+  if (leftItems.length === 0 || rightItems.length === 0 || matches.length === 0) {
+    return null;
+  }
+
+  return {
+    prompt,
+    leftItems,
+    rightItems,
+    matches
+  };
+}
+
 export default async function SmartboardPage({ params, searchParams }: SmartboardPageProps) {
   const { activityId } = await params;
   const { classId, lessonId } = await searchParams;
@@ -104,12 +188,36 @@ export default async function SmartboardPage({ params, searchParams }: Smartboar
     );
   }
 
-  if (activity.activityType !== "sorting_cards") {
+  if (activity.activityType !== "sorting_cards" && activity.activityType !== "matching_cards") {
     return (
       <Layout>
         <PageHeader description="This smartboard activity type is not available in the first MVP renderer." eyebrow="Teacher workspace" title={activity.title} />
-        <DashboardCard description="The first interactive smartboard MVP supports sorting cards only." title="Activity type coming later" />
+        <DashboardCard description="The current interactive smartboard MVP supports sorting cards and matching cards." title="Activity type coming later" />
       </Layout>
+    );
+  }
+
+  if (activity.activityType === "matching_cards") {
+    const matchingConfig = parseMatchingCardsConfig(activity);
+
+    if (!matchingConfig) {
+      return (
+        <Layout>
+          <PageHeader description="This matching activity is missing cards or match pairs." eyebrow="Teacher workspace" title={activity.title} />
+          <DashboardCard description="Ask the curriculum admin to review the activity content." title="Activity content unavailable" />
+        </Layout>
+      );
+    }
+
+    return (
+      <MatchingCardsSmartboard
+        leftItems={matchingConfig.leftItems}
+        matches={matchingConfig.matches}
+        prompt={matchingConfig.prompt}
+        returnHref={returnHref}
+        returnLabel={returnLabel}
+        rightItems={matchingConfig.rightItems}
+      />
     );
   }
 

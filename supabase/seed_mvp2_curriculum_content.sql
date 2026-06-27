@@ -348,6 +348,35 @@ values
     1
   ),
   (
+    '30000000-0000-4000-8000-000000000001',
+    'CM-AIL-G1-U1-L1-A2',
+    'Match Tools to What They Do',
+    'matching_cards',
+    'teacher_led',
+    'platform_only',
+    true,
+    'Match each tool to what it does, then ask students to explain why the match fits.',
+    '{
+      "prompt":"Match each example to what it does.",
+      "leftItems":[
+        {"id":"voice-assistant","label":"Voice assistant"},
+        {"id":"calculator","label":"Calculator"},
+        {"id":"translation-app","label":"Translation app"}
+      ],
+      "rightItems":[
+        {"id":"answers-questions","label":"Answers spoken questions"},
+        {"id":"does-arithmetic","label":"Does arithmetic"},
+        {"id":"changes-language","label":"Changes words into another language"}
+      ],
+      "matches":[
+        {"leftId":"voice-assistant","rightId":"answers-questions"},
+        {"leftId":"calculator","rightId":"does-arithmetic"},
+        {"leftId":"translation-app","rightId":"changes-language"}
+      ]
+    }'::jsonb,
+    2
+  ),
+  (
     '30000000-0000-4000-8000-000000000002',
     'CM-AIL-G1-U1-L2-A1',
     'What Comes Next?',
