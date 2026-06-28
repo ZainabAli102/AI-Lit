@@ -2,18 +2,18 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-type CsvRow = {
+export type CsvRow = {
   rowNumber: number;
   values: Record<string, string>;
 };
 
-type CsvFile = {
+export type CsvFile = {
   path: string;
   headers: string[];
   rows: CsvRow[];
 };
 
-type ValidationError = {
+export type ValidationError = {
   file: string;
   rowNumber?: number;
   field?: string;
@@ -236,7 +236,7 @@ function addError(errors: ValidationError[], file: CsvFile, rowNumber: number | 
   errors.push({ file: file.path, rowNumber, field, message });
 }
 
-function field(row: CsvRow, name: string) {
+export function field(row: CsvRow, name: string) {
   return row.values[name]?.trim() ?? "";
 }
 
@@ -372,7 +372,13 @@ function validateReference(file: CsvFile, row: CsvRow, column: string, validValu
   }
 }
 
-function validate() {
+export function formatValidationError(error: ValidationError) {
+  const row = error.rowNumber ? ` row ${error.rowNumber}` : "";
+  const fieldName = error.field ? ` field ${error.field}` : "";
+  return `- ${error.file}${row}${fieldName}: ${error.message}`;
+}
+
+export function validateCurriculumImport() {
   const errors: ValidationError[] = [];
   const csvFiles = Object.fromEntries(
     Object.entries(fileConfigs).map(([key, config]) => [key, readCsv(config.path, errors)])
@@ -449,18 +455,28 @@ function validate() {
     validateAllowedValue(csvFiles.assessmentTemplates, row, "access_type", allowed.accessType, errors);
   });
 
-  if (errors.length === 0) {
+  return {
+    csvFiles,
+    errors,
+    ok: errors.length === 0
+  };
+}
+
+function runCli() {
+  const result = validateCurriculumImport();
+
+  if (result.ok) {
     console.log("Curriculum import validation passed.");
     return;
   }
 
   console.error("Curriculum import validation failed.");
-  errors.forEach((error) => {
-    const row = error.rowNumber ? ` row ${error.rowNumber}` : "";
-    const fieldName = error.field ? ` field ${error.field}` : "";
-    console.error(`- ${error.file}${row}${fieldName}: ${error.message}`);
+  result.errors.forEach((error) => {
+    console.error(formatValidationError(error));
   });
   process.exitCode = 1;
 }
 
-validate();
+if (process.argv[1]?.endsWith("validate-curriculum-import.ts")) {
+  runCli();
+}

@@ -99,6 +99,18 @@ npm.cmd run validate:curriculum
 
 The validator checks required columns, required values, stable code uniqueness, cross-file references, enum-like values, JSON fields, and the supported smartboard activity JSON shapes. It does not insert data into Supabase.
 
+## Dry-Run Import Preview
+
+Preview how the current CSV files would map to Supabase curriculum tables before any real importer is enabled:
+
+```powershell
+npm.cmd run import:curriculum:dry-run
+```
+
+The dry-run importer runs the CSV validator first. If validation passes, it maps rows to planned payloads for `curriculum_programs`, `curriculum_grades`, `curriculum_units`, `lessons`, `lesson_sections`, `activities`, `lesson_resources`, and `assessment_templates`. It prints the stable code, parent code, title, and future action for each row.
+
+This command does not write to Supabase. It does not insert, update, delete, or modify any database data.
+
 ## Validation Rules
 
 Before importing real content, check:

@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "validate:curriculum": "tsx scripts/validate-curriculum-import.ts"
+    "validate:curriculum": "tsx scripts/validate-curriculum-import.ts",
+    "import:curriculum:dry-run": "tsx scripts/import-curriculum.ts --dry-run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
