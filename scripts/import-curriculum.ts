@@ -1,4 +1,6 @@
 import process from "node:process";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { field, formatValidationError, type CsvRow, validateCurriculumImport } from "./validate-curriculum-import";
 import type { Database } from "../src/types/database";
@@ -384,6 +386,7 @@ function printPlan(plan: ImportPlan) {
 }
 
 function createImportClient() {
+  loadLocalEnvFile();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -401,6 +404,38 @@ function createImportClient() {
           ...init,
           cache: "no-store"
         })
+    }
+  });
+}
+
+function loadLocalEnvFile() {
+  const envPath = path.join(process.cwd(), ".env.local");
+
+  if (!existsSync(envPath)) {
+    return;
+  }
+
+  const lines = readFileSync(envPath, "utf8").split(/\r?\n/);
+
+  lines.forEach((line) => {
+    const trimmedLine = line.trim();
+
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      return;
+    }
+
+    const separatorIndex = trimmedLine.indexOf("=");
+
+    if (separatorIndex === -1) {
+      return;
+    }
+
+    const key = trimmedLine.slice(0, separatorIndex).trim();
+    const rawValue = trimmedLine.slice(separatorIndex + 1).trim();
+    const value = rawValue.replace(/^["']|["']$/g, "");
+
+    if (key && process.env[key] === undefined) {
+      process.env[key] = value;
     }
   });
 }
