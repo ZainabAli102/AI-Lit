@@ -111,6 +111,20 @@ The dry-run importer runs the CSV validator first. If validation passes, it maps
 
 This command does not write to Supabase. It does not insert, update, delete, or modify any database data.
 
+## Applying CSV Content To Supabase
+
+After reviewing the dry-run output, apply the CSV content to Supabase:
+
+```powershell
+npm.cmd run import:curriculum:apply
+```
+
+Apply mode runs validation first. If validation fails, it stops before writing anything. If validation passes, rows are upserted by stable codes in this order: programs, grades, units, lessons, lesson sections, activities, resources, and assessment templates.
+
+Apply mode uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. It does not require or document a service role key at this stage.
+
+No deletes are performed. The importer does not truncate tables and does not remove content that is absent from the CSV files. Always run `npm.cmd run import:curriculum:dry-run` before apply mode and review the planned stable-code upserts.
+
 ## Validation Rules
 
 Before importing real content, check:
