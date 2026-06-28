@@ -1,2 +1,2 @@
-program_code,unit_code,title,description,grade_band,grade_level,learning_goals,duration_weeks,sequence_order,is_active,status
-CM-AIL-K6,CM-AIL-G1-U1,AI Around Us,Students notice familiar AI examples and explain simple patterns.,k_to_6,1,"Students notice familiar AI examples, explain simple patterns, and discuss careful choices.",3,1,true,draft
+program_code,grade_code,unit_code,title,description,grade_band,grade_level,learning_goals,duration_weeks,sequence_order,is_active,status
+CM-AIL-K6,CM-AIL-G1,CM-AIL-G1-U1,AI Around Us,Students notice familiar AI examples and explain simple patterns.,k_to_6,1,"Students notice familiar AI examples, explain simple patterns, and discuss careful choices.",3,1,true,draft

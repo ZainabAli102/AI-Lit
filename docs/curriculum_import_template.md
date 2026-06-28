@@ -89,6 +89,16 @@ Future import scripts should resolve IDs internally:
 - Find `lesson_id` by `lesson_code`
 - Upsert child rows by their stable codes
 
+## Validating CSV Files Before Import
+
+Run the local validator before handing CSV files to a developer or future import process:
+
+```powershell
+npm.cmd run validate:curriculum
+```
+
+The validator checks required columns, required values, stable code uniqueness, cross-file references, enum-like values, JSON fields, and the supported smartboard activity JSON shapes. It does not insert data into Supabase.
+
 ## Validation Rules
 
 Before importing real content, check:
