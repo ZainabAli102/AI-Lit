@@ -1,0 +1,2 @@
+lesson_code,template_code,title,description,assessment_type,criteria_json,access_type,sequence_order
+CM-AIL-G1-U1-L1,CM-AIL-G1-U1-L1-AT1,AI Around Us Class Checklist,Teacher-only class-level checklist aligned to the MVP K-6 assessment form.,class_checklist,"{""criteria"":[{""key"":""objective_met"",""label"":""Students named a familiar AI example.""},{""key"":""activity_completed"",""label"":""Class completed the smartboard activity.""},{""key"":""students_explained_thinking"",""label"":""Students explained their thinking using simple reasoning.""}]}",teacher_only,1

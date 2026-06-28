@@ -1,0 +1,3 @@
+lesson_code,resource_code,resource_type,title,description,file_url,content,access_type,visibility,is_printable,is_downloadable,storage_path,mime_type,estimated_pages,display_mode,sort_order
+CM-AIL-G1-U1-L1,CM-AIL-G1-U1-L1-R1,teacher_guide,Teacher Facilitation Notes,Teacher-only facilitation guidance rendered inside the platform.,,Use familiar classroom and home examples. Avoid implying every computer is AI.,teacher_only,teacher,false,false,,,,"inline",1
+CM-AIL-G1-U1-L1,CM-AIL-G1-U1-L1-R4,worksheet,AI Around Us Reflection Sheet,Printable one-page classroom reflection sheet.,,Draw one tool that might use AI. Complete: I think it uses AI because...,printable,teacher,true,false,,text/plain,1,print,4
