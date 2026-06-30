@@ -2,6 +2,7 @@ import { DashboardCard } from "@/components/DashboardCard";
 import { Layout } from "@/components/Layout";
 import { MatchingCardsSmartboard } from "@/components/MatchingCardsSmartboard";
 import { PageHeader } from "@/components/PageHeader";
+import { PatternSpottingSmartboard, type PatternRound } from "@/components/PatternSpottingSmartboard";
 import { SortingCardsSmartboard } from "@/components/SortingCardsSmartboard";
 import { getSmartboardActivityResult, type SmartboardActivity } from "@/lib/smartboard-data";
 
@@ -46,8 +47,20 @@ type MatchingCardsConfig = {
   matches: MatchPair[];
 };
 
+type PatternSpottingConfig = {
+  prompt: string;
+  renderMode: "color_swatches" | "shapes";
+  pairWithLabel: boolean;
+  shapeSet: string[];
+  rounds: PatternRound[];
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 }
 
 function parseSortingCardsConfig(activity: SmartboardActivity): SortingCardsConfig | null {
@@ -159,6 +172,57 @@ function parseMatchingCardsConfig(activity: SmartboardActivity): MatchingCardsCo
   };
 }
 
+function parsePatternRound(value: unknown): PatternRound | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === "string" ? value.id : null;
+  const sequence = stringArray(value.sequence);
+  const options = stringArray(value.options);
+  const next = typeof value.next === "string" ? value.next : null;
+  const repeatingUnit = stringArray(value.repeating_unit ?? value.repeatingUnit);
+
+  if (!id || sequence.length === 0 || options.length === 0 || !next) {
+    return null;
+  }
+
+  return {
+    id,
+    sequence,
+    options,
+    next,
+    repeatingUnit: repeatingUnit.length > 0 ? repeatingUnit : undefined
+  };
+}
+
+function parsePatternSpottingConfig(activity: SmartboardActivity): PatternSpottingConfig | null {
+  if (!isRecord(activity.activityJson)) {
+    return null;
+  }
+
+  const renderValue = typeof activity.activityJson.render === "string" ? activity.activityJson.render : "color_swatches";
+  const renderMode = renderValue === "shapes" ? "shapes" : "color_swatches";
+  const prompt = typeof activity.activityJson.prompt === "string" ? activity.activityJson.prompt : "What comes next?";
+  const pairWithLabel = typeof activity.activityJson.pair_with_label === "boolean" ? activity.activityJson.pair_with_label : true;
+  const shapeSet = stringArray(activity.activityJson.shape_set ?? activity.activityJson.shapeSet);
+  const rounds = Array.isArray(activity.activityJson.rounds)
+    ? activity.activityJson.rounds.map(parsePatternRound).filter((round): round is PatternRound => round !== null)
+    : [];
+
+  if (rounds.length === 0) {
+    return null;
+  }
+
+  return {
+    prompt,
+    renderMode,
+    pairWithLabel,
+    shapeSet,
+    rounds
+  };
+}
+
 export default async function SmartboardPage({ params, searchParams }: SmartboardPageProps) {
   const { activityId } = await params;
   const { classId, lessonId } = await searchParams;
@@ -188,12 +252,37 @@ export default async function SmartboardPage({ params, searchParams }: Smartboar
     );
   }
 
-  if (activity.activityType !== "sorting_cards" && activity.activityType !== "matching_cards") {
+  if (activity.activityType !== "sorting_cards" && activity.activityType !== "matching_cards" && activity.activityType !== "pattern_spotting") {
     return (
       <Layout>
         <PageHeader description="This smartboard activity type is not available in the first MVP renderer." eyebrow="Teacher workspace" title={activity.title} />
-        <DashboardCard description="The current interactive smartboard MVP supports sorting cards and matching cards." title="Activity type coming later" />
+        <DashboardCard description="The current interactive smartboard MVP supports sorting cards, matching cards, and pattern spotting." title="Activity type coming later" />
       </Layout>
+    );
+  }
+
+  if (activity.activityType === "pattern_spotting") {
+    const patternConfig = parsePatternSpottingConfig(activity);
+
+    if (!patternConfig) {
+      return (
+        <Layout>
+          <PageHeader description="This pattern activity is missing rounds, sequence items, answer options, or the next item." eyebrow="Teacher workspace" title={activity.title} />
+          <DashboardCard description="Ask the curriculum admin to review the activity content." title="Activity content unavailable" />
+        </Layout>
+      );
+    }
+
+    return (
+      <PatternSpottingSmartboard
+        pairWithLabel={patternConfig.pairWithLabel}
+        prompt={patternConfig.prompt}
+        renderMode={patternConfig.renderMode}
+        returnHref={returnHref}
+        returnLabel={returnLabel}
+        rounds={patternConfig.rounds}
+        shapeSet={patternConfig.shapeSet}
+      />
     );
   }
 

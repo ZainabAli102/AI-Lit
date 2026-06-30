@@ -78,6 +78,29 @@ const previewSmartboardActivities: SmartboardActivity[] = [
         { leftId: "translation-app", rightId: "changes-language" }
       ]
     }
+  },
+  {
+    id: "preview-activity-pattern-colors",
+    title: "Color Pattern Mission",
+    activityType: "pattern_spotting",
+    deliveryMode: "teacher_led",
+    accessType: "platform_only",
+    isSmartboardReady: true,
+    instructions: "Show the class the color pattern and ask what comes next.",
+    activityJson: {
+      render: "color_swatches",
+      pair_with_label: true,
+      prompt: "Look at the pattern. What comes next?",
+      rounds: [
+        {
+          id: "r1",
+          sequence: ["red", "blue", "red", "blue"],
+          options: ["red", "blue", "green"],
+          next: "red",
+          repeating_unit: ["red", "blue"]
+        }
+      ]
+    }
   }
 ];
 

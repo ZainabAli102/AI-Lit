@@ -122,7 +122,7 @@ const fileConfigs: Record<string, FileConfig> = {
 
 const allowed = {
   accessType: new Set(["platform_only", "printable", "downloadable", "teacher_only", "student_visible_later"]),
-  activityType: new Set(["sorting_cards", "matching_cards", "matching", "true_false", "discussion_prompt", "pattern_recognition", "scenario_cards", "class_poll", "reflection_prompt"]),
+  activityType: new Set(["sorting_cards", "matching_cards", "matching", "true_false", "discussion_prompt", "pattern_recognition", "pattern_spotting", "scenario_cards", "class_poll", "reflection_prompt"]),
   deliveryMode: new Set(["teacher_led", "student_account", "hybrid"]),
   displayMode: new Set(["inline", "print", "smartboard", "download", "link"]),
   gradeBand: new Set(["k_to_6", "grades_7_to_12"]),
@@ -321,6 +321,10 @@ function hasArray(value: unknown, key: string) {
   return typeof value === "object" && value !== null && Array.isArray((value as Record<string, unknown>)[key]);
 }
 
+function hasString(value: unknown, key: string) {
+  return typeof value === "object" && value !== null && typeof (value as Record<string, unknown>)[key] === "string";
+}
+
 function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
   file.rows.forEach((row) => {
     const activityType = field(row, "activity_type");
@@ -356,6 +360,45 @@ function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
       if (!hasAnswerKey) {
         addError(errors, file, row.rowNumber, "activity_json", "matching_cards activity_json must include matches or answer_key.");
       }
+    }
+
+    if (activityType === "pattern_spotting") {
+      const render = typeof (activityJson as Record<string, unknown>).render === "string" ? (activityJson as Record<string, unknown>).render : "";
+      const rounds = Array.isArray((activityJson as Record<string, unknown>).rounds) ? ((activityJson as Record<string, unknown>).rounds as unknown[]) : [];
+
+      if (render && render !== "color_swatches" && render !== "shapes") {
+        addError(errors, file, row.rowNumber, "activity_json", "pattern_spotting render must be color_swatches or shapes.");
+      }
+
+      if (rounds.length === 0) {
+        addError(errors, file, row.rowNumber, "activity_json", "pattern_spotting activity_json must include a rounds array.");
+        return;
+      }
+
+      rounds.forEach((round, roundIndex) => {
+        if (!round || typeof round !== "object" || Array.isArray(round)) {
+          addError(errors, file, row.rowNumber, "activity_json", `pattern_spotting round ${roundIndex + 1} must be an object.`);
+          return;
+        }
+
+        if (!hasString(round, "id")) {
+          addError(errors, file, row.rowNumber, "activity_json", `pattern_spotting round ${roundIndex + 1} must include id.`);
+        }
+
+        if (!hasArray(round, "sequence")) {
+          addError(errors, file, row.rowNumber, "activity_json", `pattern_spotting round ${roundIndex + 1} must include a sequence array.`);
+        }
+
+        if (!hasArray(round, "options")) {
+          addError(errors, file, row.rowNumber, "activity_json", `pattern_spotting round ${roundIndex + 1} must include an options array.`);
+        }
+
+        if (!hasString(round, "next")) {
+          addError(errors, file, row.rowNumber, "activity_json", `pattern_spotting round ${roundIndex + 1} must include next.`);
+        }
+
+        // repeating_unit is recommended for reveal highlighting, but early production rows can still validate without it.
+      });
     }
   });
 }

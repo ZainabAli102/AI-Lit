@@ -127,6 +127,7 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
   const scenarios = stringArray(value.scenarios);
   const cards = Array.isArray(value.cards) ? value.cards.filter(isRecord) : [];
   const patterns = Array.isArray(value.patterns) ? value.patterns.filter(isRecord) : [];
+  const rounds = Array.isArray(value.rounds) ? value.rounds.filter(isRecord) : [];
 
   return (
     <div className="mt-3 space-y-3 rounded-md bg-white p-3 text-sm leading-6 text-[#42514a]">
@@ -167,6 +168,25 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
               const items = Array.isArray(pattern.items) ? pattern.items.map(String).join(", ") : `Pattern ${index + 1}`;
               const answer = typeof pattern.answer === "string" ? pattern.answer : null;
               return <li key={`${items}-${index}`}>{answer ? `${items} -> ${answer}` : items}</li>;
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {rounds.length > 0 ? (
+        <div>
+          <p className="font-semibold text-[#17211c]">Pattern rounds</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {rounds.map((round, index) => {
+              const sequence = stringArray(round.sequence).join(", ");
+              const options = stringArray(round.options).join(", ");
+              const next = typeof round.next === "string" ? round.next : null;
+              return (
+                <li key={`${sequence}-${index}`}>
+                  {sequence || `Round ${index + 1}`}
+                  {next ? ` -> ${next}` : ""}
+                  {options ? ` | Choices: ${options}` : ""}
+                </li>
+              );
             })}
           </ul>
         </div>
