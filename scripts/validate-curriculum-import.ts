@@ -27,20 +27,50 @@ type FileConfig = {
   unique?: string;
 };
 
-const templateDir = path.join(process.cwd(), "docs", "import_templates");
-
-const files = {
-  programs: path.join(templateDir, "programs.csv"),
-  grades: path.join(templateDir, "grades.csv"),
-  units: path.join(templateDir, "units.csv"),
-  lessons: path.join(templateDir, "lessons.csv"),
-  lessonSections: path.join(templateDir, "lesson_sections.csv"),
-  activities: path.join(templateDir, "activities.csv"),
-  resources: path.join(templateDir, "resources.csv"),
-  assessmentTemplates: path.join(templateDir, "assessment_templates.csv")
+export type ValidateCurriculumImportOptions = {
+  sourceDir?: string;
 };
 
-const fileConfigs: Record<string, FileConfig> = {
+const defaultTemplateDir = path.join(process.cwd(), "docs", "import_templates");
+
+function resolveSourceDir(sourceDir?: string) {
+  return path.resolve(process.cwd(), sourceDir ?? defaultTemplateDir);
+}
+
+export function getSourceDirFromArgs(args = process.argv.slice(2)) {
+  const sourceDirIndex = args.indexOf("--source-dir");
+
+  if (sourceDirIndex === -1) {
+    return undefined;
+  }
+
+  const sourceDir = args[sourceDirIndex + 1];
+
+  if (!sourceDir || sourceDir.startsWith("--")) {
+    console.error("Missing value for --source-dir.");
+    process.exit(1);
+  }
+
+  return sourceDir;
+}
+
+function createFiles(sourceDir: string) {
+  return {
+    programs: path.join(sourceDir, "programs.csv"),
+    grades: path.join(sourceDir, "grades.csv"),
+    units: path.join(sourceDir, "units.csv"),
+    lessons: path.join(sourceDir, "lessons.csv"),
+    lessonSections: path.join(sourceDir, "lesson_sections.csv"),
+    activities: path.join(sourceDir, "activities.csv"),
+    resources: path.join(sourceDir, "resources.csv"),
+    assessmentTemplates: path.join(sourceDir, "assessment_templates.csv")
+  };
+}
+
+function createFileConfigs(sourceDir: string): Record<string, FileConfig> {
+  const files = createFiles(sourceDir);
+
+  return {
   programs: {
     path: files.programs,
     headers: ["program_code", "title", "description", "grade_band", "version", "status"],
@@ -118,7 +148,8 @@ const fileConfigs: Record<string, FileConfig> = {
     required: ["lesson_code", "template_code", "title", "assessment_type", "criteria_json", "access_type", "sequence_order"],
     unique: "template_code"
   }
-};
+  };
+}
 
 const allowed = {
   accessType: new Set(["platform_only", "printable", "downloadable", "teacher_only", "student_visible_later"]),
@@ -421,8 +452,9 @@ export function formatValidationError(error: ValidationError) {
   return `- ${error.file}${row}${fieldName}: ${error.message}`;
 }
 
-export function validateCurriculumImport() {
+export function validateCurriculumImport(options: ValidateCurriculumImportOptions = {}) {
   const errors: ValidationError[] = [];
+  const fileConfigs = createFileConfigs(resolveSourceDir(options.sourceDir));
   const csvFiles = Object.fromEntries(
     Object.entries(fileConfigs).map(([key, config]) => [key, readCsv(config.path, errors)])
   ) as Record<keyof typeof fileConfigs, CsvFile>;
@@ -506,7 +538,7 @@ export function validateCurriculumImport() {
 }
 
 function runCli() {
-  const result = validateCurriculumImport();
+  const result = validateCurriculumImport({ sourceDir: getSourceDirFromArgs() });
 
   if (result.ok) {
     console.log("Curriculum import validation passed.");

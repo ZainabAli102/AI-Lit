@@ -2,7 +2,7 @@ import process from "node:process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { field, formatValidationError, type CsvRow, validateCurriculumImport } from "./validate-curriculum-import";
+import { field, formatValidationError, getSourceDirFromArgs, type CsvRow, validateCurriculumImport } from "./validate-curriculum-import";
 import type { Database } from "../src/types/database";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -236,8 +236,8 @@ function optionalFieldWarnings(table: string, code: string, payload: Record<stri
     .map((fieldName) => `${table} ${code} has empty optional field "${fieldName}".`);
 }
 
-function prepareImport(): PreparedImport | null {
-  const validation = validateCurriculumImport();
+function prepareImport(sourceDir?: string): PreparedImport | null {
+  const validation = validateCurriculumImport({ sourceDir });
 
   if (!validation.ok) {
     console.error("Curriculum import validation failed.");
@@ -704,7 +704,8 @@ async function applyImport(prepared: PreparedImport) {
 
 async function main() {
   const mode = getMode();
-  const prepared = prepareImport();
+  const sourceDir = getSourceDirFromArgs();
+  const prepared = prepareImport(sourceDir);
 
   if (!prepared) {
     process.exit(1);
