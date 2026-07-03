@@ -6,6 +6,7 @@ import { PREVIEW_TEACHER_PROFILE_ID, saveK6ClassLessonAssessment, type K6Assessm
 
 const responseValues = ["yes", "partly", "no"] as const;
 const statusValues = ["completed", "needs_review"] as const;
+const lessonFitValues = ["Very strong", "Good", "Needs adjustment", "Difficult to teach"] as const;
 
 function readAssessmentResponse(formData: FormData, key: string): K6AssessmentInput["objectiveMet"] {
   const value = formData.get(key);
@@ -14,7 +15,12 @@ function readAssessmentResponse(formData: FormData, key: string): K6AssessmentIn
 
 function readOverallStatus(formData: FormData): K6AssessmentInput["overallStatus"] {
   const value = formData.get("overallStatus");
-  return statusValues.includes(value as K6AssessmentInput["overallStatus"]) ? (value as K6AssessmentInput["overallStatus"]) : "needs_review";
+  if (statusValues.includes(value as K6AssessmentInput["overallStatus"])) {
+    return value as K6AssessmentInput["overallStatus"];
+  }
+
+  const lessonFit = readLessonFit(formData);
+  return lessonFit === "Needs adjustment" || lessonFit === "Difficult to teach" ? "needs_review" : "completed";
 }
 
 function readText(formData: FormData, key: string): string | null {
@@ -26,6 +32,29 @@ function readText(formData: FormData, key: string): string | null {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function readLessonFit(formData: FormData) {
+  const value = formData.get("overallLessonFit");
+  return lessonFitValues.includes(value as (typeof lessonFitValues)[number]) ? (value as (typeof lessonFitValues)[number]) : "Good";
+}
+
+function composeTeacherReflection(formData: FormData) {
+  const revisitNote = readText(formData, "whatToRevisit") ?? readText(formData, "studentsNeedingSupport");
+  const fields = [
+    ["Overall lesson fit", readLessonFit(formData)],
+    ["What worked well", readText(formData, "whatWorkedWell")],
+    ["What confused students", readText(formData, "whatConfusedStudents")],
+    ["What should be revisited next lesson", revisitNote],
+    ["Activity, printable, or board task issue", readText(formData, "assetOrActivityIssue")],
+    ["Notes or suggestions to improve this lesson", readText(formData, "lessonImprovementNotes")]
+  ];
+
+  const lines = fields
+    .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+    .map(([label, value]) => `${label}: ${value}`);
+
+  return lines.length > 0 ? lines.join("\n") : null;
 }
 
 export async function submitK6AssessmentAction(formData: FormData) {
@@ -47,7 +76,7 @@ export async function submitK6AssessmentAction(formData: FormData) {
     activityCompleted: readAssessmentResponse(formData, "activityCompleted"),
     studentsExplainedThinking: readAssessmentResponse(formData, "studentsExplainedThinking"),
     studentsNeedingSupport: readText(formData, "studentsNeedingSupport"),
-    teacherNotes: readText(formData, "teacherNotes"),
+    teacherNotes: composeTeacherReflection(formData),
     overallStatus: readOverallStatus(formData)
   });
 

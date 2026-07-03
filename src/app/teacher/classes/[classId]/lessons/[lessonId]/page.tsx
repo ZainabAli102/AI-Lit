@@ -37,17 +37,19 @@ const responseOptions = [
   { label: "No", value: "no" }
 ];
 
+const lessonFitOptions = ["Very strong", "Good", "Needs adjustment", "Difficult to teach"] as const;
+
 function assessmentMessage(status?: string) {
   if (status === "supabase") {
-    return "Current class assessment saved.";
+    return "Reflection saved.";
   }
 
   if (status === "local_preview") {
-    return "Assessment captured in local preview mode.";
+    return "Reflection captured in local preview mode.";
   }
 
   if (status === "error") {
-    return "Assessment could not be saved. Check the form and try again.";
+    return "Reflection could not be saved. Check the form and try again.";
   }
 
   return null;
@@ -101,6 +103,60 @@ function cleanTeacherText(value: string | null | undefined) {
 
 function cleanTeacherItems(items: string[]) {
   return items.map(cleanTeacherText).filter(Boolean);
+}
+
+function parseTeacherReflection(notes: string | null | undefined) {
+  const reflection = {
+    overallLessonFit: "Good",
+    whatWorkedWell: "",
+    whatConfusedStudents: "",
+    whatToRevisit: "",
+    assetOrActivityIssue: "",
+    lessonImprovementNotes: ""
+  };
+
+  if (!notes) {
+    return reflection;
+  }
+
+  const fieldMap: Record<string, keyof typeof reflection> = {
+    "overall lesson fit": "overallLessonFit",
+    "what worked well": "whatWorkedWell",
+    "what confused students": "whatConfusedStudents",
+    "what should be revisited next lesson": "whatToRevisit",
+    "activity, printable, or board task issue": "assetOrActivityIssue",
+    "any asset or activity issue": "assetOrActivityIssue",
+    "notes or suggestions to improve this lesson": "lessonImprovementNotes",
+    "notes for the next lesson": "lessonImprovementNotes"
+  };
+
+  let foundStructuredField = false;
+
+  notes.split(/\r?\n/).forEach((line) => {
+    const match = line.match(/^([^:]+):\s*(.*)$/);
+
+    if (!match) {
+      return;
+    }
+
+    const key = fieldMap[match[1].trim().toLowerCase()];
+    if (!key) {
+      return;
+    }
+
+    foundStructuredField = true;
+    reflection[key] = cleanTeacherText(match[2]);
+  });
+
+  if (!foundStructuredField) {
+    reflection.lessonImprovementNotes = cleanTeacherText(notes);
+  }
+
+  if (!lessonFitOptions.includes(reflection.overallLessonFit as (typeof lessonFitOptions)[number])) {
+    reflection.overallLessonFit = "Good";
+  }
+
+  return reflection;
 }
 
 function sectionHasType(section: LessonSection, sectionTypes: string[]) {
@@ -1017,17 +1073,63 @@ function ResponseGroup({
   value: K6AssessmentInput["objectiveMet"];
 }) {
   return (
-    <fieldset className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
-      <legend className="px-1 text-sm font-semibold text-[#17211c]">{legend}</legend>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+    <div>
+      <p className="text-sm font-semibold text-[#17211c]">{legend}</p>
+      <div className="mt-2 inline-flex flex-wrap gap-1 rounded-md bg-[#eef3ef] p-1">
         {responseOptions.map((option) => (
-          <label className="flex min-h-10 items-center gap-2 rounded-md border border-[#dde3dc] bg-white px-3 text-sm text-[#42514a]" key={option.value}>
-            <input className="h-4 w-4 accent-[#116466]" defaultChecked={option.value === value} name={name} type="radio" value={option.value} />
-            <span>{option.label}</span>
+          <label className="relative" key={option.value}>
+            <input className="peer sr-only" defaultChecked={option.value === value} name={name} type="radio" value={option.value} />
+            <span className="flex min-h-9 min-w-20 cursor-pointer items-center justify-center rounded-md border border-transparent bg-transparent px-3 text-sm font-semibold text-[#42514a] transition peer-checked:border-[#9cc7ba] peer-checked:bg-white peer-checked:text-[#0b4d4f] peer-focus-visible:ring-2 peer-focus-visible:ring-[#c9dfd8]">
+              {option.label}
+            </span>
           </label>
         ))}
       </div>
-    </fieldset>
+    </div>
+  );
+}
+
+function LessonFitGroup({ value }: { value: string }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-[#17211c]">Overall lesson fit</p>
+      <div className="mt-2 flex flex-wrap gap-1 rounded-md bg-[#eef3ef] p-1">
+        {lessonFitOptions.map((option) => (
+          <label className="relative" key={option}>
+            <input className="peer sr-only" defaultChecked={value === option} name="overallLessonFit" type="radio" value={option} />
+            <span className="flex min-h-9 cursor-pointer items-center justify-center rounded-md border border-transparent bg-transparent px-3 text-sm font-semibold text-[#42514a] transition peer-checked:border-[#9cc7ba] peer-checked:bg-white peer-checked:text-[#0b4d4f] peer-focus-visible:ring-2 peer-focus-visible:ring-[#c9dfd8]">
+              {option}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReflectionTextArea({
+  defaultValue,
+  label,
+  name,
+  placeholder,
+  tall = false
+}: {
+  defaultValue: string;
+  label: string;
+  name: string;
+  placeholder: string;
+  tall?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold text-[#17211c]">{label}</span>
+      <textarea
+        className={`mt-2 w-full rounded-md border border-[#d7e0da] bg-[#fbfcfa] px-3 py-2 text-sm leading-6 text-[#42514a] outline-none transition placeholder:text-[#8a9791] focus:border-[#116466] focus:bg-white focus:ring-2 focus:ring-[#c9dfd8] ${tall ? "min-h-28" : "min-h-16"}`}
+        defaultValue={defaultValue}
+        name={name}
+        placeholder={placeholder}
+      />
+    </label>
   );
 }
 
@@ -1078,7 +1180,7 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
   const objectiveMet = existingAssessment?.objectiveMet ?? "partly";
   const activityCompleted = existingAssessment?.activityCompleted ?? "partly";
   const studentsExplainedThinking = existingAssessment?.studentsExplainedThinking ?? "partly";
-  const overallStatus = existingAssessment?.overallStatus ?? "completed";
+  const teacherReflection = parseTeacherReflection(existingAssessment?.teacherNotes);
 
   if (!classInfo) {
     return (
@@ -1202,91 +1304,113 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
           </div>
         </TeacherMoment>
 
-        <TeacherMoment description="Capture what the class understood and what to revisit next." id="reflect" title="Reflect">
-          <div className="space-y-4">
-            <div className="rounded-md border border-[#dde3dc] bg-white p-4">
-              <h3 className="text-lg font-semibold text-[#17211c]">Assessment look-fors</h3>
-              {lookForItems.length > 0 || criteriaFromLesson(lesson?.successCriteriaJson).length > 0 ? (
-                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm leading-6 text-[#42514a]">
-                  {[...lookForItems, ...criteriaFromLesson(lesson?.successCriteriaJson)].slice(0, 5).map((item) => (
-                    <li key={item}>{cleanTeacherText(item)}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 text-sm leading-6 text-[#66746d]">Assessment look-fors will appear here when added.</p>
-              )}
-              {revisitText ? (
-                <p className="mt-4 rounded-md bg-[#fbfcfa] p-3 text-sm leading-6 text-[#42514a]">
-                  <span className="font-semibold text-[#17211c]">If many students struggle:</span> {revisitText}
-                </p>
-              ) : null}
-            </div>
-            {familySections.length > 0 ? (
-              <TeacherSupportCallout title="Family Connection">
-                <SectionList sections={familySections} />
-              </TeacherSupportCallout>
-            ) : null}
-            <div className="rounded-md border border-[#dde3dc] bg-white p-4" id="class-reflection">
-              <h3 className="text-lg font-semibold text-[#17211c]">Class Reflection / Assessment Form</h3>
-              {existingAssessment ? (
-                <div className="mt-4 rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-4 py-3 text-sm text-[#0b4d4f]">
-                  Current assessment loaded. Last saved {new Date(existingAssessment.updatedAt).toLocaleString()}.
-                </div>
-              ) : (
-                <div className="mt-4 rounded-md border border-[#dde3dc] bg-[#fbfcfa] px-4 py-3 text-sm text-[#66746d]">
-                  No saved assessment yet for this class and lesson.
-                </div>
-              )}
-          <form action={submitK6AssessmentAction} className="mt-4 space-y-4">
+        <TeacherMoment description="Capture what the class understood and what should improve next time." id="reflect" title="Reflect on the Lesson">
+          <form action={submitK6AssessmentAction} className="space-y-5" id="class-reflection">
             <input name="classId" type="hidden" value={classId} />
             <input name="lessonId" type="hidden" value={lessonId} />
             <input name="teacherId" type="hidden" value={selectedTeacherProfileId} />
             <input name="teacherProfileId" type="hidden" value={selectedTeacherProfileId} />
 
-            <ResponseGroup legend="Class understanding" name="objectiveMet" value={objectiveMet} />
-            <ResponseGroup legend="Activity completed" name="activityCompleted" value={activityCompleted} />
-            <ResponseGroup legend="Students explained their thinking" name="studentsExplainedThinking" value={studentsExplainedThinking} />
-
-            <label className="block">
-              <span className="text-sm font-semibold text-[#42514a]">Students needing support</span>
-              <textarea
-                className="mt-2 min-h-24 w-full rounded-md border border-[#cad6cf] bg-[#fbfcfa] px-3 py-2 text-sm outline-none transition focus:border-[#116466] focus:ring-2 focus:ring-[#c9dfd8]"
-                name="studentsNeedingSupport"
-                placeholder="Names, groups, or support notes. No student accounts are used for K to 6."
-                defaultValue={existingAssessment?.studentsNeedingSupport ?? ""}
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-semibold text-[#42514a]">Teacher notes</span>
-              <textarea
-                className="mt-2 min-h-24 w-full rounded-md border border-[#cad6cf] bg-[#fbfcfa] px-3 py-2 text-sm outline-none transition focus:border-[#116466] focus:ring-2 focus:ring-[#c9dfd8]"
-                name="teacherNotes"
-                placeholder="Whole-class observations, misconceptions, or next lesson adjustments."
-                defaultValue={existingAssessment?.teacherNotes ?? ""}
-              />
-            </label>
-
-            <fieldset className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
-              <legend className="px-1 text-sm font-semibold text-[#17211c]">Overall status</legend>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <label className="flex min-h-10 items-center gap-2 rounded-md border border-[#dde3dc] bg-white px-3 text-sm text-[#42514a]">
-                  <input className="h-4 w-4 accent-[#116466]" defaultChecked={overallStatus === "completed"} name="overallStatus" type="radio" value="completed" />
-                  <span>Completed</span>
-                </label>
-                <label className="flex min-h-10 items-center gap-2 rounded-md border border-[#dde3dc] bg-white px-3 text-sm text-[#42514a]">
-                  <input className="h-4 w-4 accent-[#116466]" defaultChecked={overallStatus === "needs_review"} name="overallStatus" type="radio" value="needs_review" />
-                  <span>Needs review</span>
-                </label>
+            <section className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-5">
+              <div>
+                <h3 className="text-xl font-semibold text-[#17211c]">Quick Class Check</h3>
+                <p className="mt-1 text-sm leading-6 text-[#66746d]">A two-minute whole-class check before you move on.</p>
               </div>
-            </fieldset>
 
-            <Button className="w-full" disabled={!isK6TeacherLed} icon={<ClipboardCheck aria-hidden="true" className="h-4 w-4" />} type="submit">
-              {existingAssessment ? "Update class assessment" : "Save class assessment"}
-            </Button>
-          </form>
+              {lookForItems.length > 0 || criteriaFromLesson(lesson?.successCriteriaJson).length > 0 ? (
+                <div className="mt-4 rounded-md bg-white px-4 py-3">
+                  <p className="text-sm font-semibold text-[#17211c]">Lesson look-fors</p>
+                  <ul className="mt-2 grid gap-x-6 gap-y-1 text-sm leading-6 text-[#42514a] md:grid-cols-2">
+                    {[...lookForItems, ...criteriaFromLesson(lesson?.successCriteriaJson)].slice(0, 5).map((item) => (
+                      <li className="flex gap-2" key={item}>
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#79a99c]" aria-hidden="true" />
+                        <span>{cleanTeacherText(item)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div className="mt-5 grid gap-5 lg:grid-cols-3">
+                <ResponseGroup legend="Class understanding" name="objectiveMet" value={objectiveMet} />
+                <ResponseGroup legend="Activity completed" name="activityCompleted" value={activityCompleted} />
+                <ResponseGroup legend="Students explained their thinking" name="studentsExplainedThinking" value={studentsExplainedThinking} />
+              </div>
+
+              <div className="mt-5">
+                <ReflectionTextArea
+                  defaultValue={existingAssessment?.studentsNeedingSupport ?? ""}
+                  label="What should I revisit next lesson?"
+                  name="studentsNeedingSupport"
+                  placeholder="Class-level follow-up or concept to revisit."
+                />
+              </div>
+
+              {revisitText ? (
+                <p className="mt-4 rounded-md bg-white px-4 py-3 text-sm leading-6 text-[#42514a]">
+                  <span className="font-semibold text-[#17211c]">If many students struggle:</span> {revisitText}
+                </p>
+              ) : null}
+            </section>
+
+            <section className="rounded-md border border-[#dde3dc] bg-white p-5">
+              <div>
+                <h3 className="text-xl font-semibold text-[#17211c]">Curriculum Feedback</h3>
+                <p className="mt-1 text-sm leading-6 text-[#66746d]">Short notes here help improve the lesson, activity, and classroom materials.</p>
+              </div>
+
+              <div className="mt-5">
+                <LessonFitGroup value={teacherReflection.overallLessonFit} />
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <ReflectionTextArea
+                  defaultValue={teacherReflection.whatWorkedWell}
+                  label="What worked well?"
+                  name="whatWorkedWell"
+                  placeholder="A prompt, material, or classroom moment that helped."
+                />
+                <ReflectionTextArea
+                  defaultValue={teacherReflection.whatConfusedStudents}
+                  label="What confused students?"
+                  name="whatConfusedStudents"
+                  placeholder="A word, example, or activity step to clarify."
+                />
+                <ReflectionTextArea
+                  defaultValue={teacherReflection.assetOrActivityIssue}
+                  label="Activity or material issue"
+                  name="assetOrActivityIssue"
+                  placeholder="Timing, instructions, printable, or board flow."
+                />
+                <ReflectionTextArea
+                  defaultValue={teacherReflection.lessonImprovementNotes}
+                  label="Suggestion to improve"
+                  name="lessonImprovementNotes"
+                  placeholder="Optional note for the curriculum team."
+                />
+              </div>
+
+              {familySections.length > 0 ? (
+                <div className="mt-5 rounded-md bg-[#fbfcfa] px-4 py-3">
+                  <p className="text-sm font-semibold text-[#17211c]">Family connection</p>
+                  <div className="mt-2">
+                    <SectionList sections={familySections} />
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Button disabled={!isK6TeacherLed} icon={<ClipboardCheck aria-hidden="true" className="h-4 w-4" />} type="submit">
+                Save Reflection
+              </Button>
+              {existingAssessment ? (
+                <p className="text-sm leading-6 text-[#0b4d4f]">Last saved {new Date(existingAssessment.updatedAt).toLocaleString()}.</p>
+              ) : (
+                <p className="text-sm leading-6 text-[#66746d]">No saved reflection yet.</p>
+              )}
             </div>
-          </div>
+          </form>
         </TeacherMoment>
 
       </section>
