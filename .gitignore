@@ -13,8 +13,13 @@ tsconfig.tsbuildinfo
 
 # local verification artifacts
 .npm-cache
+.tmp/
 dev-server.log
 dev-server.err.log
+
+# private curriculum production artifacts
+docs/production/
+docs/blueprints/
 
 # production
 build

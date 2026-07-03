@@ -32,6 +32,14 @@ export type TeacherLesson = {
   materialsNeeded: string | null;
   vocabulary: string | null;
   teacherPrepNotes: string | null;
+  iCanStatement?: string | null;
+  studentChallenge?: string | null;
+  studentOutput?: string | null;
+  successCriteriaJson?: Json;
+  alignmentJson?: Json;
+  localizationJson?: Json;
+  logisticsJson?: Json;
+  toolUseStatus?: string | null;
   contentVersion: string;
 };
 
@@ -217,6 +225,14 @@ type LessonRow = {
   materials_needed: string | null;
   vocabulary: string | null;
   teacher_prep_notes: string | null;
+  i_can_statement: string | null;
+  student_challenge: string | null;
+  student_output: string | null;
+  success_criteria_json: Json;
+  alignment_json: Json;
+  localization_json: Json;
+  logistics_json: Json;
+  tool_use_status: string | null;
   content_version: string;
 };
 
@@ -870,7 +886,7 @@ async function getLessonsForGradeBand(gradeBand: GradeBand): Promise<TeacherData
   const { data, error } = await supabase
     .from("lessons")
     .select(
-      "id,lesson_code,display_code,title,summary,sequence_order,estimated_minutes,duration_minutes,grade_band,grade_level,learning_objectives,essential_question,materials_needed,vocabulary,teacher_prep_notes,content_version"
+      "id,lesson_code,display_code,title,summary,sequence_order,estimated_minutes,duration_minutes,grade_band,grade_level,learning_objectives,essential_question,materials_needed,vocabulary,teacher_prep_notes,i_can_statement,student_challenge,student_output,success_criteria_json,alignment_json,localization_json,logistics_json,tool_use_status,content_version"
     )
     .eq("grade_band", gradeBand)
     .eq("is_active", true)
@@ -907,6 +923,14 @@ async function getLessonsForGradeBand(gradeBand: GradeBand): Promise<TeacherData
       materialsNeeded: lesson.materials_needed,
       vocabulary: lesson.vocabulary,
       teacherPrepNotes: lesson.teacher_prep_notes,
+      iCanStatement: lesson.i_can_statement,
+      studentChallenge: lesson.student_challenge,
+      studentOutput: lesson.student_output,
+      successCriteriaJson: lesson.success_criteria_json,
+      alignmentJson: lesson.alignment_json,
+      localizationJson: lesson.localization_json,
+      logisticsJson: lesson.logistics_json,
+      toolUseStatus: lesson.tool_use_status,
       contentVersion: lesson.content_version
     })),
     mode: "supabase",

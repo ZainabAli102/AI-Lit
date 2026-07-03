@@ -1,9 +1,8 @@
 import { ArrowLeft, ClipboardCheck, MonitorUp } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/Button";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Layout } from "@/components/Layout";
-import { PageHeader } from "@/components/PageHeader";
-import { DELIVERY_MODE_LABELS, GRADE_BAND_LABELS } from "@/lib/constants";
 import {
   getAssessmentTemplatesResult,
   getK6ClassLessonAssessment,
@@ -76,6 +75,231 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function firstText(...values: Array<string | null | undefined>) {
+  return values.map((value) => value?.trim()).find(Boolean) ?? null;
+}
+
+function cleanTeacherText(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .replace(/\s*[\u2013\u2014]\s*/g, ": ")
+    .replace(/\s*&\s*/g, " and ")
+    .replace(/^(HOOK)\s*:\s*/i, "Hook: ")
+    .replace(/^(MAIN)\s*:\s*/i, "Main Activity: ")
+    .replace(/^(CLOSURE)\s*:\s*/i, "Closure: ")
+    .replace(/^(READ-ALOUD)\s*:\s*/i, "Read-aloud: ")
+    .replace(/^(READ ALOUD)\s*:\s*/i, "Read-aloud: ")
+    .replace(/^(BOARD STEM)\s*:\s*/i, "Board stem: ")
+    .replace(/^(REFLECT)\s*:\s*/i, "Reflect: ")
+    .replace(/:\s*([a-z])/g, (_, letter: string) => `: ${letter.toUpperCase()}`)
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function cleanTeacherItems(items: string[]) {
+  return items.map(cleanTeacherText).filter(Boolean);
+}
+
+function sectionHasType(section: LessonSection, sectionTypes: string[]) {
+  return sectionTypes.includes(section.sectionType);
+}
+
+function searchableText(...values: unknown[]) {
+  return values
+    .map((value) => {
+      if (typeof value === "string") {
+        return value;
+      }
+
+      if (value === null || value === undefined) {
+        return "";
+      }
+
+      return JSON.stringify(value);
+    })
+    .join(" ")
+    .toLowerCase();
+}
+
+function isPatternDetectivesLesson(lesson: Awaited<ReturnType<typeof getLessonForClass>>) {
+  const text = searchableText(lesson?.title, lesson?.summary, lesson?.studentChallenge, lesson?.studentOutput);
+  return text.includes("pattern detective") || text.includes("pattern hunt");
+}
+
+function isLegacyAiDemoText(text: string) {
+  return [
+    "what is ai",
+    "ai helper",
+    "ai helpers",
+    "people helpers",
+    "ordinary tools",
+    "picture sort",
+    "translation app",
+    "voice helper",
+    "named a familiar ai",
+    "name one ai",
+    "naming an ai",
+    "computer helper made by people"
+  ].some((keyword) => text.includes(keyword));
+}
+
+function isCurrentLessonContent(
+  lesson: Awaited<ReturnType<typeof getLessonForClass>>,
+  item: LessonSection | LessonActivity | LessonResource | AssessmentTemplate
+) {
+  if (!isPatternDetectivesLesson(lesson)) {
+    return true;
+  }
+
+  if ("activityType" in item && item.title.toLowerCase().includes("pattern or not")) {
+    return true;
+  }
+
+  return !isLegacyAiDemoText(searchableText(item));
+}
+
+function activityPrompt(activity: LessonActivity) {
+  if (isRecord(activity.activityJson) && typeof activity.activityJson.prompt === "string") {
+    return cleanTeacherText(activity.activityJson.prompt);
+  }
+
+  return cleanTeacherText(activity.instructions);
+}
+
+function assessmentLookFors(sections: LessonSection[], templates: AssessmentTemplate[]) {
+  const lookFors = cleanTeacherItems(sections.flatMap((section) => (isRecord(section.contentJson) ? stringArray(section.contentJson.look_for) : [])));
+
+  if (lookFors.length > 0) {
+    return lookFors;
+  }
+
+  return templates.flatMap((template) => {
+    if (!isRecord(template.criteriaJson) || !Array.isArray(template.criteriaJson.criteria)) {
+      return [];
+    }
+
+    return template.criteriaJson.criteria.reduce<string[]>((items, criterion, index) => {
+      if (isRecord(criterion)) {
+        items.push(typeof criterion.label === "string" ? cleanTeacherText(criterion.label) : `Look-for ${index + 1}`);
+      }
+
+      return items;
+    }, []);
+  });
+}
+
+function criteriaFromLesson(value: unknown) {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  return cleanTeacherItems(stringArray(value.criteria));
+}
+
+function mainActivityLabel(lesson: Awaited<ReturnType<typeof getLessonForClass>>, activities: LessonActivity[]) {
+  const lessonText = searchableText(lesson?.title, lesson?.studentChallenge, lesson?.studentOutput);
+
+  if (lessonText.includes("pattern hunt")) {
+    return "Pattern Hunt";
+  }
+
+  return cleanTeacherText(firstText(lesson?.studentOutput, lesson?.studentChallenge, activities.find((activity) => !activity.isSmartboardReady)?.title)) ?? "Main activity will appear here when added.";
+}
+
+function toolUseLabel(lesson: Awaited<ReturnType<typeof getLessonForClass>>, hasBoardExtension: boolean) {
+  const rawStatus = lesson?.toolUseStatus;
+
+  if ((rawStatus === "no_tool" || rawStatus === "unplugged") && hasBoardExtension) {
+    return "Unplugged, optional teacher-led board extension available.";
+  }
+
+  if (hasBoardExtension) {
+    return `${rawStatus ? resourceTypeLabel(rawStatus) : "Teacher-led"}, optional board extension available.`;
+  }
+
+  return rawStatus ? resourceTypeLabel(rawStatus) : "Teacher-led.";
+}
+
+function lessonPromise(lesson: Awaited<ReturnType<typeof getLessonForClass>>) {
+  if (isPatternDetectivesLesson(lesson)) {
+    return "Students find repeating patterns in the classroom and explain what repeats.";
+  }
+
+  return cleanTeacherText(firstText(lesson?.summary, lesson?.learningObjectives)) || "Students explore the lesson idea through a teacher-led classroom activity.";
+}
+
+function unitLabel(lesson: Awaited<ReturnType<typeof getLessonForClass>>) {
+  const unitMatch = lesson?.lessonCode?.match(/-U(\d+)-/);
+  const unit = unitMatch ? `Unit ${unitMatch[1]}` : "Unit";
+  const grade = lesson?.gradeLevel ? `Grade ${lesson.gradeLevel}` : "Grade";
+  return `${grade} / ${unit}`;
+}
+
+function revisitGuidance(sections: LessonSection[]) {
+  for (const section of sections) {
+    if (isRecord(section.contentJson) && typeof section.contentJson.not_yet_ok === "string") {
+      return cleanTeacherText(section.contentJson.not_yet_ok);
+    }
+  }
+
+  return null;
+}
+
+function SectionList({ emptyMessage, sections }: { emptyMessage?: string; sections: LessonSection[] }) {
+  if (sections.length === 0) {
+    return emptyMessage ? <EmptyState>{emptyMessage}</EmptyState> : null;
+  }
+
+  return (
+    <div className="grid gap-3">
+      {sections.map((section) => (
+        <LessonSectionCard key={section.id} section={section} />
+      ))}
+    </div>
+  );
+}
+
+function CompactResourceList({ resources }: { resources: LessonResource[] }) {
+  if (resources.length === 0) {
+    return <EmptyState>No printables or teacher resources have been attached yet.</EmptyState>;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-md border border-[#dde3dc] bg-white">
+      <div className="grid grid-cols-[minmax(0,1fr)_7rem_9rem_8rem] gap-3 border-b border-[#eef2ee] bg-[#fbfcfa] px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#66746d]">
+        <span>Resource</span>
+        <span>Use</span>
+        <span>Status</span>
+        <span>Action</span>
+      </div>
+      <div className="divide-y divide-[#eef2ee]">
+        {resources.map((resource) => {
+          const isPrintable = resource.isPrintable || resource.accessType === "printable";
+          const hasUploadedFile = Boolean(resource.fileUrl || resource.storagePath);
+          return (
+            <div className="grid grid-cols-[minmax(0,1fr)_7rem_9rem_8rem] gap-3 px-3 py-3 text-sm text-[#42514a]" key={resource.id}>
+              <div>
+                <p className="font-semibold text-[#17211c]">{cleanTeacherText(resource.title)}</p>
+                {resource.description ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#66746d]">{cleanTeacherText(resource.description)}</p> : null}
+              </div>
+              <div className="text-xs font-semibold text-[#66746d]">{isPrintable ? "Printable" : resourceTypeLabel(resource.resourceType)}</div>
+              <div className="text-xs font-semibold text-[#66746d]">
+                {isPrintable && !hasUploadedFile ? "File not uploaded yet" : resource.isDownloadable ? "Downloadable" : "Ready"}
+              </div>
+              <div className="text-xs font-semibold text-[#66746d]">
+                {resource.fileUrl && resource.isDownloadable ? "Open file" : hasUploadedFile ? "Ready" : "No file"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TeacherContentDetails({ value }: { value: unknown }) {
   if (!isRecord(value) || Object.keys(value).length === 0) {
     return null;
@@ -83,34 +307,58 @@ function TeacherContentDetails({ value }: { value: unknown }) {
 
   const teacherNote = typeof value.teacher_note === "string" ? value.teacher_note : null;
   const sentenceFrame = typeof value.sentence_frame === "string" ? value.sentence_frame : null;
+  const notYetOk = typeof value.not_yet_ok === "string" ? value.not_yet_ok : null;
   const steps = stringArray(value.steps);
   const lookFor = stringArray(value.look_for);
+  const prompts = stringArray(value.prompts);
+  const watchFor = stringArray(value.watch_for);
+  const teacherMoves = stringArray(value.teacher_moves);
 
   return (
     <div className="mt-3 space-y-3 rounded-md bg-white p-3 text-sm leading-6 text-[#42514a]">
       {teacherNote ? (
         <p>
-          <span className="font-semibold text-[#17211c]">Teacher note:</span> {teacherNote}
+          <span className="font-semibold text-[#17211c]">Teacher note:</span> {cleanTeacherText(teacherNote)}
         </p>
       ) : null}
       {sentenceFrame ? (
         <p>
-          <span className="font-semibold text-[#17211c]">Sentence frame:</span> {sentenceFrame}
+          <span className="font-semibold text-[#17211c]">Sentence frame:</span> {cleanTeacherText(sentenceFrame)}
         </p>
       ) : null}
       {steps.length > 0 ? (
         <ol className="list-decimal space-y-1 pl-5">
           {steps.map((step) => (
-            <li key={step}>{step}</li>
+            <li key={step}>{cleanTeacherText(step)}</li>
           ))}
         </ol>
       ) : null}
       {lookFor.length > 0 ? (
         <ul className="list-disc space-y-1 pl-5">
           {lookFor.map((item) => (
-            <li key={item}>{item}</li>
+            <li key={item}>{cleanTeacherText(item)}</li>
           ))}
         </ul>
+      ) : null}
+      {prompts.length > 0 ? (
+        <div>
+          <p className="font-semibold text-[#17211c]">Ask:</p>
+          <ul className="list-disc space-y-1 pl-5">
+            {prompts.map((item) => (
+              <li key={item}>{cleanTeacherText(item)}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {watchFor.length > 0 || teacherMoves.length > 0 || notYetOk ? (
+        <div>
+          <p className="font-semibold text-[#17211c]">Teacher support:</p>
+          <ul className="list-disc space-y-1 pl-5">
+            {[...watchFor, ...teacherMoves, notYetOk].filter((item): item is string => Boolean(item)).map((item) => (
+              <li key={item}>{cleanTeacherText(item)}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
   );
@@ -133,7 +381,7 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
     <div className="mt-3 space-y-3 rounded-md bg-white p-3 text-sm leading-6 text-[#42514a]">
       {prompt ? (
         <p>
-          <span className="font-semibold text-[#17211c]">Prompt:</span> {prompt}
+          <span className="font-semibold text-[#17211c]">Prompt:</span> {cleanTeacherText(prompt)}
         </p>
       ) : null}
       {categories.length > 0 ? (
@@ -142,7 +390,7 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
           <div className="mt-2 flex flex-wrap gap-2">
             {categories.map((category) => (
               <span className="rounded-md border border-[#cad6cf] bg-[#fbfcfa] px-2 py-1 text-xs font-semibold text-[#42514a]" key={category}>
-                {category}
+                {cleanTeacherText(category)}
               </span>
             ))}
           </div>
@@ -155,7 +403,7 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
             {cards.map((card, index) => {
               const label = typeof card.label === "string" ? card.label : `Card ${index + 1}`;
               const correctCategory = typeof card.correctCategory === "string" ? card.correctCategory : null;
-              return <li key={`${label}-${index}`}>{correctCategory ? `${label} -> ${correctCategory}` : label}</li>;
+              return <li key={`${label}-${index}`}>{correctCategory ? `${cleanTeacherText(label)} to ${cleanTeacherText(correctCategory)}` : cleanTeacherText(label)}</li>;
             })}
           </ul>
         </div>
@@ -167,7 +415,7 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
             {patterns.map((pattern, index) => {
               const items = Array.isArray(pattern.items) ? pattern.items.map(String).join(", ") : `Pattern ${index + 1}`;
               const answer = typeof pattern.answer === "string" ? pattern.answer : null;
-              return <li key={`${items}-${index}`}>{answer ? `${items} -> ${answer}` : items}</li>;
+              return <li key={`${items}-${index}`}>{answer ? `${cleanTeacherText(items)} to ${cleanTeacherText(answer)}` : cleanTeacherText(items)}</li>;
             })}
           </ul>
         </div>
@@ -182,9 +430,9 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
               const next = typeof round.next === "string" ? round.next : null;
               return (
                 <li key={`${sequence}-${index}`}>
-                  {sequence || `Round ${index + 1}`}
-                  {next ? ` -> ${next}` : ""}
-                  {options ? ` | Choices: ${options}` : ""}
+                  {cleanTeacherText(sequence || `Round ${index + 1}`)}
+                  {next ? ` to ${cleanTeacherText(next)}` : ""}
+                  {options ? ` | Choices: ${cleanTeacherText(options)}` : ""}
                 </li>
               );
             })}
@@ -196,7 +444,7 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
           <p className="font-semibold text-[#17211c]">Scenario cards</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {scenarios.map((scenario) => (
-              <li key={scenario}>{scenario}</li>
+              <li key={scenario}>{cleanTeacherText(scenario)}</li>
             ))}
           </ul>
         </div>
@@ -206,7 +454,7 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
           <p className="font-semibold text-[#17211c]">Sample responses</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {sampleResponses.map((response) => (
-              <li key={response}>{response}</li>
+              <li key={response}>{cleanTeacherText(response)}</li>
             ))}
           </ul>
         </div>
@@ -229,7 +477,7 @@ function AssessmentCriteria({ value }: { value: unknown }) {
   return (
     <ul className="mt-3 list-disc space-y-1 rounded-md bg-white p-3 pl-7 text-sm leading-6 text-[#42514a]">
       {criteria.map((criterion, index) => {
-        const label = typeof criterion.label === "string" ? criterion.label : `Criterion ${index + 1}`;
+        const label = typeof criterion.label === "string" ? cleanTeacherText(criterion.label) : `Criterion ${index + 1}`;
         return <li key={`${label}-${index}`}>{label}</li>;
       })}
     </ul>
@@ -237,7 +485,7 @@ function AssessmentCriteria({ value }: { value: unknown }) {
 }
 
 function AccessBadge({ value }: { value: string }) {
-  if (value === "platform_only") {
+  if (value === "platform_only" || value === "teacher_only") {
     return null;
   }
 
@@ -259,41 +507,47 @@ function LessonSectionCard({ section }: { section: LessonSection }) {
     <article className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">{resourceTypeLabel(section.sectionType)}</p>
-          <h3 className="mt-1 text-base font-semibold text-[#17211c]">{section.title}</h3>
+          <h3 className="text-base font-semibold text-[#17211c]">{cleanTeacherText(section.title)}</h3>
+          {section.estimatedMinutes ? <p className="mt-1 text-xs font-semibold text-[#66746d]">{section.estimatedMinutes} minutes</p> : null}
         </div>
         <AccessBadge value={section.accessType} />
       </div>
-      {section.content && !hasStructuredSteps ? <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#42514a]">{section.content}</p> : null}
+      {section.content && !hasStructuredSteps ? <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#42514a]">{cleanTeacherText(section.content)}</p> : null}
       <TeacherContentDetails value={section.contentJson} />
-      {section.estimatedMinutes ? <p className="mt-3 text-xs font-semibold text-[#66746d]">{section.estimatedMinutes} minutes</p> : null}
     </article>
   );
 }
 
-function ActivityCard({ activity, classId, lessonId }: { activity: LessonActivity; classId: string; lessonId: string }) {
+function BoardExtensionCard({ activity, classId, lessonId }: { activity: LessonActivity; classId: string; lessonId: string }) {
   const smartboardHref = `/teacher/smartboard/${activity.id}?classId=${encodeURIComponent(classId)}&lessonId=${encodeURIComponent(lessonId)}`;
+  const prompt = activityPrompt(activity);
 
   return (
-    <article className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
+    <article className="rounded-md bg-[#f4faf7] p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">{resourceTypeLabel(activity.activityType)}</p>
-          <h3 className="mt-1 text-base font-semibold text-[#17211c]">{activity.title}</h3>
+          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Optional board extension</p>
+          <h3 className="mt-1 text-[21px] font-semibold text-[#17211c]">{cleanTeacherText(activity.title)}</h3>
+          <p className="mt-1 text-sm font-semibold text-[#66746d]">{resourceTypeLabel(activity.activityType)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <AccessBadge value={activity.accessType} />
           {activity.isSmartboardReady ? (
             <span className="rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-2 py-1 text-xs font-semibold text-[#0b4d4f]">Smartboard Activity</span>
           ) : null}
         </div>
       </div>
-      {activity.instructions ? <p className="mt-3 text-sm leading-6 text-[#42514a]">{activity.instructions}</p> : null}
-      <ActivityDetails activityType={activity.activityType} value={activity.activityJson} />
+      <p className="mt-3 text-base leading-7 text-[#42514a]">
+        This is optional teacher-led board support. The lesson can still be taught unplugged without opening the activity.
+      </p>
+      {prompt ? (
+        <p className="mt-3 rounded-md bg-white/80 p-4 text-base leading-7 text-[#42514a]">
+          <span className="font-semibold text-[#17211c]">Teacher prompt:</span> {cleanTeacherText(prompt)}
+        </p>
+      ) : null}
       {activity.isSmartboardReady ? (
         <div className="mt-4">
           <Button href={smartboardHref} icon={<MonitorUp aria-hidden="true" className="h-4 w-4" />}>
-            Open Smartboard Activity
+            Open Board Activity
           </Button>
         </div>
       ) : null}
@@ -303,13 +557,14 @@ function ActivityCard({ activity, classId, lessonId }: { activity: LessonActivit
 
 function ResourceCard({ resource }: { resource: LessonResource }) {
   const shouldShowPrintableBadge = resource.isPrintable || resource.accessType === "printable";
+  const hasUploadedFile = Boolean(resource.fileUrl || resource.storagePath);
 
   return (
     <article className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">{resourceTypeLabel(resource.resourceType)}</p>
-          <h3 className="mt-1 text-base font-semibold text-[#17211c]">{resource.title}</h3>
+          <h3 className="mt-1 text-base font-semibold text-[#17211c]">{cleanTeacherText(resource.title)}</h3>
         </div>
         <div className="flex flex-wrap gap-2">
           {resource.accessType !== "printable" ? <AccessBadge value={resource.accessType} /> : null}
@@ -317,15 +572,18 @@ function ResourceCard({ resource }: { resource: LessonResource }) {
           {resource.isDownloadable ? <span className="rounded-md border border-[#cad6cf] bg-white px-2 py-1 text-xs font-semibold text-[#42514a]">Downloadable</span> : null}
         </div>
       </div>
-      {resource.description ? <p className="mt-3 text-sm leading-6 text-[#66746d]">{resource.description}</p> : null}
-      {resource.content ? <p className="mt-3 rounded-md bg-white p-3 text-sm leading-6 text-[#42514a]">{resource.content}</p> : null}
+      {resource.description ? <p className="mt-3 text-sm leading-6 text-[#66746d]">{cleanTeacherText(resource.description)}</p> : null}
+      {resource.content ? <p className="mt-3 rounded-md bg-white p-3 text-sm leading-6 text-[#42514a]">{cleanTeacherText(resource.content)}</p> : null}
       {resource.fileUrl && resource.isDownloadable ? <p className="mt-3 text-sm font-semibold text-[#0b4d4f]">{resource.fileUrl}</p> : null}
       {shouldShowPrintableBadge ? (
-        <p className="mt-3 text-xs font-semibold text-[#66746d]">
-          {resource.estimatedPages ? `${resource.estimatedPages} page${resource.estimatedPages === 1 ? "" : "s"} ` : ""}
-          {resource.estimatedPages ? <span aria-hidden="true">&middot; </span> : null}
-          Classroom material
-        </p>
+        <div className="mt-3 space-y-1 text-xs font-semibold text-[#66746d]">
+          <p>
+            {resource.estimatedPages ? `${resource.estimatedPages} page${resource.estimatedPages === 1 ? "" : "s"} ` : ""}
+            {resource.estimatedPages ? <span aria-hidden="true">&middot; </span> : null}
+            Classroom material
+          </p>
+          {!hasUploadedFile ? <p className="text-[#8a6b20]">Printable file not uploaded yet.</p> : null}
+        </div>
       ) : null}
     </article>
   );
@@ -336,14 +594,416 @@ function AssessmentTemplateCard({ template }: { template: AssessmentTemplate }) 
     <article className="rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">{template.assessmentType}</p>
-          <h3 className="mt-1 text-base font-semibold text-[#17211c]">{template.title}</h3>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">Class checklist</p>
+          <h3 className="mt-1 text-base font-semibold text-[#17211c]">{cleanTeacherText(template.title)}</h3>
         </div>
         <AccessBadge value={template.accessType} />
       </div>
-      {template.description ? <p className="mt-3 text-sm leading-6 text-[#66746d]">{template.description}</p> : null}
+      {template.description ? <p className="mt-3 text-sm leading-6 text-[#66746d]">{cleanTeacherText(template.description)}</p> : null}
       <AssessmentCriteria value={template.criteriaJson} />
     </article>
+  );
+}
+
+function GuideSection({
+  children,
+  defaultOpen = false,
+  description,
+  title
+}: {
+  children: ReactNode;
+  defaultOpen?: boolean;
+  description?: string;
+  title: string;
+}) {
+  return (
+    <details className="group rounded-md border border-[#dde3dc] bg-white p-0 shadow-sm" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-4 text-left">
+        <div>
+          <h2 className="text-lg font-semibold text-[#17211c]">{title}</h2>
+          {description ? <p className="mt-1 text-sm leading-6 text-[#66746d]">{description}</p> : null}
+        </div>
+        <span className="shrink-0 rounded-md border border-[#cad6cf] px-2 py-1 text-xs font-semibold text-[#42514a] group-open:hidden">Open</span>
+        <span className="hidden shrink-0 rounded-md border border-[#cad6cf] px-2 py-1 text-xs font-semibold text-[#42514a] group-open:inline">Close</span>
+      </summary>
+      <div className="border-t border-[#eef2ee] p-5">{children}</div>
+    </details>
+  );
+}
+
+function TodaysLessonCard({
+  assessmentLookForItems,
+  classId,
+  lesson,
+  lessonId,
+  mainActivity,
+  printableResources,
+  smartboardActivity,
+  toolUse
+}: {
+  assessmentLookForItems: string[];
+  classId: string;
+  lesson: Awaited<ReturnType<typeof getLessonForClass>>;
+  lessonId: string;
+  mainActivity: string;
+  printableResources: LessonResource[];
+  smartboardActivity?: LessonActivity;
+  toolUse: string;
+}) {
+  const smartboardHref = smartboardActivity
+    ? `/teacher/smartboard/${smartboardActivity.id}?classId=${encodeURIComponent(classId)}&lessonId=${encodeURIComponent(lessonId)}`
+    : null;
+  const successCriteria = criteriaFromLesson(lesson?.successCriteriaJson);
+  const materials = [
+    lesson?.materialsNeeded,
+    ...printableResources.slice(0, 3).map((resource) => resource.title)
+  ].filter((item): item is string => Boolean(item));
+
+  return (
+    <section className="rounded-md border border-[#dde3dc] bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">{lesson?.displayCode ?? lesson?.lessonCode ?? "today"}</p>
+          <h2 className="mt-1 text-xl font-semibold text-[#17211c]">{lesson?.title ?? "Today's Lesson"}</h2>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-[#42514a]">{lesson?.summary ?? lesson?.learningObjectives ?? "Lesson goal will appear here when added."}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button href="#teach-the-lesson">Teach Lesson</Button>
+          {smartboardHref ? (
+            <Button href={smartboardHref} icon={<MonitorUp aria-hidden="true" className="h-4 w-4" />} variant="secondary">
+              Board Extension
+            </Button>
+          ) : null}
+          <Button href="#before-class" variant="secondary">Printables</Button>
+          <Button href="#class-reflection" variant="secondary">Class Reflection</Button>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 text-sm leading-6 text-[#42514a] md:grid-cols-2 xl:grid-cols-4">
+        <p><span className="font-semibold text-[#17211c]">I can:</span> {lesson?.iCanStatement ?? "Not added yet."}</p>
+        <p><span className="font-semibold text-[#17211c]">Challenge:</span> {lesson?.studentChallenge ?? "Not added yet."}</p>
+        <p><span className="font-semibold text-[#17211c]">Main activity:</span> {mainActivity}</p>
+        <p><span className="font-semibold text-[#17211c]">Tool use:</span> {toolUse}</p>
+      </div>
+      {assessmentLookForItems.length > 0 || successCriteria.length > 0 || materials.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-xs leading-5 text-[#66746d]">
+          {assessmentLookForItems.length > 0 || successCriteria.length > 0 ? (
+            <p><span className="font-semibold text-[#42514a]">Look for:</span> {[...assessmentLookForItems, ...successCriteria].slice(0, 2).join("; ")}</p>
+          ) : null}
+          {materials.length > 0 ? <p><span className="font-semibold text-[#42514a]">Materials:</span> {materials.slice(0, 2).join("; ")}</p> : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function TeacherSupportCallout({ children, title = "Teacher Support" }: { children: ReactNode; title?: string }) {
+  return (
+    <div className="rounded-md border border-[#d8dfd8] bg-[#fbfcfa] p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">{title}</p>
+      <div className="mt-3 space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function parseTeachingLine(line: string) {
+  const text = cleanTeacherText(line);
+  const match = text.match(/^(Hook|Main Activity|Main|Closure|Read-aloud|Read aloud|Board stem|Reflect|Ask)\s*:\s*(.+)$/i);
+
+  if (!match) {
+    return { label: "Teacher does", text };
+  }
+
+  const rawLabel = match[1].toLowerCase();
+  const label =
+    rawLabel === "main" || rawLabel === "main activity"
+      ? "Main Activity"
+      : rawLabel === "read-aloud" || rawLabel === "read aloud"
+        ? "Teacher says"
+        : rawLabel === "board stem"
+          ? "Board stem"
+          : rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+
+  return { label, text: match[2] };
+}
+
+function TeachingFlowLines({ lines }: { lines: string[] }) {
+  const parsedLines = lines.map(parseTeachingLine).filter((line) => line.text);
+
+  if (parsedLines.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 space-y-4">
+      {parsedLines.map((line, index) => {
+        const isScript = line.label === "Teacher says" || line.label === "Board stem";
+
+        return (
+          <div className={isScript ? "rounded-md bg-[#f4faf7] p-4" : ""} key={`${line.label}-${line.text}-${index}`}>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">{line.label}</p>
+            <p className={`${isScript ? "mt-2 text-[17px] leading-8 text-[#23332b]" : "mt-1 text-base leading-7 text-[#42514a]"}`}>
+              {isScript ? `"${line.text}"` : line.text}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function splitTeachingFlowText(value: string | null | undefined) {
+  if (!value) {
+    return [];
+  }
+
+  const normalized = value
+    .replace(/\r/g, "")
+    .replace(/(?:^|\n)\s*\d+[\.)]\s*/g, "\n")
+    .replace(/\s+(HOOK|MAIN|CLOSURE|READ-ALOUD|READ ALOUD|BOARD STEM|REFLECT|ASK)\s*[\u2013\u2014:]/gi, "\n$1:");
+
+  return normalized
+    .split(/\n+/)
+    .map(cleanTeacherText)
+    .filter(Boolean);
+}
+
+function PracticalTeachingBlock({ section }: { section: LessonSection }) {
+  const contentJson = isRecord(section.contentJson) ? section.contentJson : {};
+  const steps = cleanTeacherItems(stringArray(contentJson.steps));
+  const lookFor = cleanTeacherItems([...stringArray(contentJson.look_for), ...stringArray(contentJson.listen_for)]);
+  const supportItems = [
+    typeof contentJson.teacher_note === "string" ? contentJson.teacher_note : null,
+    typeof contentJson.not_yet_ok === "string" ? contentJson.not_yet_ok : null,
+    ...stringArray(contentJson.watch_for),
+    ...stringArray(contentJson.teacher_moves)
+  ].filter((item): item is string => Boolean(item)).map(cleanTeacherText);
+  const sentenceFrame = typeof contentJson.sentence_frame === "string" ? contentJson.sentence_frame : null;
+  const teacherSays = cleanTeacherText(firstText(typeof contentJson.teacher_says === "string" ? contentJson.teacher_says : null, sentenceFrame));
+  const teacherDoes = cleanTeacherText(firstText(typeof contentJson.teacher_does === "string" ? contentJson.teacher_does : null));
+  const studentsDo = cleanTeacherText(firstText(typeof contentJson.students_do === "string" ? contentJson.students_do : null));
+  const askItems = cleanTeacherItems([...stringArray(contentJson.prompts), ...stringArray(contentJson.ask)]);
+  const extendItems = cleanTeacherItems(stringArray(contentJson.extend));
+  const askContent = sectionHasType(section, ["hook_opening", "discussion_prompt"]) ? cleanTeacherText(section.content) : null;
+  const doesContent = sectionHasType(section, ["lesson_flow", "guided_activity", "worked_example", "reflection", "closure"]) ? cleanTeacherText(section.content) : null;
+  const flowContentLines = splitTeachingFlowText(doesContent);
+  const shouldRenderFlowLines = steps.length > 0 || flowContentLines.some((line) => /^(Hook|Main Activity|Main|Closure|Read-aloud|Read aloud|Board stem|Reflect|Ask)\s*:/i.test(line));
+  const teacherSaysDisplay = teacherSays.replace(/^Read-aloud:\s*/i, "");
+
+  return (
+    <article className="bg-white">
+      <h4 className="text-[17px] font-semibold text-[#17211c]">{cleanTeacherText(section.title)}</h4>
+      <div className="mt-4 space-y-4">
+        {teacherSays ? (
+          <div className="rounded-md bg-[#f4faf7] p-4">
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Teacher says</p>
+            <p className="mt-2 text-[17px] leading-8 text-[#23332b]">&ldquo;{teacherSaysDisplay}&rdquo;</p>
+          </div>
+        ) : null}
+        {teacherDoes || doesContent || steps.length > 0 ? (
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Teacher does</p>
+            {teacherDoes ? (
+              <p className="mt-1 whitespace-pre-line text-base leading-7 text-[#42514a]">{teacherDoes}</p>
+            ) : shouldRenderFlowLines ? (
+              <TeachingFlowLines lines={steps.length > 0 ? steps : flowContentLines} />
+            ) : (
+              <p className="mt-1 whitespace-pre-line text-base leading-7 text-[#42514a]">{doesContent}</p>
+            )}
+          </div>
+        ) : null}
+        {studentsDo ? (
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Students do</p>
+            <p className="mt-1 whitespace-pre-line text-base leading-7 text-[#42514a]">{studentsDo}</p>
+          </div>
+        ) : null}
+        {askContent || askItems.length > 0 ? (
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Ask</p>
+            {askItems.length > 0 ? (
+              <ul className="mt-2 list-disc space-y-2 pl-5 text-base leading-7 text-[#42514a]">
+                {askItems.map((item) => (
+                  <li key={item}>{cleanTeacherText(item)}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-1 whitespace-pre-line text-base leading-7 text-[#42514a]">{askContent}</p>
+            )}
+          </div>
+        ) : null}
+        {lookFor.length > 0 ? (
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Listen for</p>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-base leading-7 text-[#42514a]">
+              {lookFor.map((item) => (
+                <li key={item}>{cleanTeacherText(item)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {section.content && !studentsDo && !askContent && !doesContent && steps.length === 0 ? (
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Students do</p>
+            <p className="mt-1 whitespace-pre-line text-base leading-7 text-[#42514a]">{cleanTeacherText(section.content)}</p>
+          </div>
+        ) : null}
+        {supportItems.length > 0 ? (
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Support</p>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-base leading-7 text-[#42514a]">
+              {supportItems.map((item) => (
+                <li key={item}>{cleanTeacherText(item)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {extendItems.length > 0 ? (
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Extend</p>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-base leading-7 text-[#42514a]">
+              {extendItems.map((item) => (
+                <li key={item}>{cleanTeacherText(item)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function supportLine(section: LessonSection) {
+  if (isRecord(section.contentJson)) {
+    return firstText(
+      stringArray(section.contentJson.teacher_moves)[0],
+      stringArray(section.contentJson.watch_for)[0],
+      typeof section.contentJson.teacher_note === "string" ? section.contentJson.teacher_note : null,
+      typeof section.contentJson.language_integration === "string" ? section.contentJson.language_integration : null
+    );
+  }
+
+  return section.content;
+}
+
+function InlineSupportNotes({
+  differentiationSections,
+  expectedResponseSections,
+  localizationSections
+}: {
+  differentiationSections: LessonSection[];
+  expectedResponseSections: LessonSection[];
+  localizationSections: LessonSection[];
+}) {
+  const notes = [
+    ...expectedResponseSections.slice(0, 1).map((section) => ({ title: "Common mistake", text: supportLine(section) })),
+    ...differentiationSections.slice(0, 1).map((section) => ({ title: "Accessibility note", text: supportLine(section) })),
+    ...localizationSections.slice(0, 2).map((section) => ({
+      title: section.sectionType === "language_integration" ? "Language note" : "Local connection",
+      text: supportLine(section)
+    }))
+  ].filter((note): note is { title: string; text: string } => Boolean(note.text));
+
+  if (notes.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border border-[#d8dfd8] bg-[#fbfcfa] p-4">
+      {notes.map((note) => (
+        <p className="text-sm leading-6 text-[#42514a]" key={`${note.title}-${note.text}`}>
+          <span className="font-semibold text-[#17211c]">{note.title}:</span> {note.text}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function TeachingPath({
+  differentiationSections,
+  expectedResponseSections,
+  localizationSections,
+  sections
+}: {
+  differentiationSections: LessonSection[];
+  expectedResponseSections: LessonSection[];
+  localizationSections: LessonSection[];
+  sections: LessonSection[];
+}) {
+  if (sections.length === 0) {
+    return <EmptyState>No teaching sequence has been added yet.</EmptyState>;
+  }
+
+  const opening = sections.filter((section) => sectionHasType(section, ["hook_opening"]));
+  const closure = sections.filter((section) => sectionHasType(section, ["reflection", "closure"]));
+  const mainActivity = sections.filter((section) => !opening.includes(section) && !closure.includes(section));
+
+  const groups = [
+    { title: "Open", sections: opening },
+    { title: "Explore", sections: mainActivity },
+    { title: "Share", sections: closure }
+  ].filter((group) => group.sections.length > 0);
+
+  return (
+    <div className="relative space-y-8">
+      {groups.map((group, index) => (
+        <section className="relative pl-14" key={group.title}>
+          {index < groups.length - 1 ? <span className="absolute left-[18px] top-12 h-[calc(100%-1rem)] w-px bg-[#d8e2dc]" aria-hidden="true" /> : null}
+          <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full bg-[#116466] text-sm font-bold text-white shadow-sm">
+            {index + 1}
+          </div>
+          <div className="space-y-4">
+            <div>
+              <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">Step {index + 1}</p>
+              <h3 className="mt-1 text-[22px] font-semibold text-[#17211c]">{group.title}</h3>
+            </div>
+            {group.sections.map((section) => (
+              <PracticalTeachingBlock key={section.id} section={section} />
+            ))}
+            {group.title === "Explore" ? (
+              <InlineSupportNotes
+                differentiationSections={differentiationSections}
+                expectedResponseSections={expectedResponseSections}
+                localizationSections={localizationSections}
+              />
+            ) : null}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function TeacherMoment({
+  children,
+  defaultOpen = false,
+  description,
+  id,
+  title
+}: {
+  children: ReactNode;
+  defaultOpen?: boolean;
+  description: string;
+  id: string;
+  title: string;
+}) {
+  const isTeach = title === "Teach";
+
+  return (
+    <details
+      className={`group rounded-md border bg-white shadow-sm ${isTeach ? "border-[#b9d8c8] ring-1 ring-[#d9ebe3]" : "border-[#dde3dc]"}`}
+      id={id}
+      open={defaultOpen}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4">
+        <div>
+          <h2 className="text-2xl font-semibold text-[#17211c]">{title}</h2>
+          <p className="mt-1 text-base leading-7 text-[#66746d]">{description}</p>
+        </div>
+        <span className="shrink-0 rounded-md border border-[#cad6cf] px-2 py-1 text-xs font-semibold text-[#42514a] group-open:hidden">Open</span>
+        <span className="hidden shrink-0 rounded-md border border-[#cad6cf] px-2 py-1 text-xs font-semibold text-[#42514a] group-open:inline">Close</span>
+      </summary>
+      <div className="border-t border-[#eef2ee] px-5 py-6">{children}</div>
+    </details>
   );
 }
 
@@ -385,28 +1045,36 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
     getLessonResourcesResult(lessonId),
     getAssessmentTemplatesResult(lessonId)
   ]);
-  const sections = sectionsResult.data;
-  const activities = activitiesResult.data;
-  const resources = resourcesResult.data;
+  const sections = sectionsResult.data.filter((section) => isCurrentLessonContent(lesson, section));
+  const activities = activitiesResult.data.filter((activity) => isCurrentLessonContent(lesson, activity));
+  const resources = resourcesResult.data.filter((resource) => isCurrentLessonContent(lesson, resource));
+  const assessmentTemplates = assessmentTemplatesResult.data.filter((template) => isCurrentLessonContent(lesson, template));
+  const filteredOutContentCount =
+    sectionsResult.data.length + activitiesResult.data.length + resourcesResult.data.length + assessmentTemplatesResult.data.length -
+    (sections.length + activities.length + resources.length + assessmentTemplates.length);
   const printableResources = resources.filter((resource) => resource.isPrintable || resource.accessType === "printable");
-  const platformResources = resources.filter((resource) => !resource.isPrintable && resource.accessType !== "downloadable");
+  const teacherResources = resources.filter((resource) => !resource.isPrintable && resource.accessType !== "downloadable");
   const downloadableResources = resources.filter((resource) => resource.isDownloadable || resource.accessType === "downloadable");
   const smartboardActivities = activities.filter((activity) => activity.isSmartboardReady);
-  const assessmentTemplates = assessmentTemplatesResult.data;
-  const overviewSections = sections.filter((section) => ["overview", "learning_objectives"].includes(section.sectionType));
-  const beforeLessonSections = sections.filter((section) => section.sectionType === "teacher_script");
-  const lessonFlowSections = sections.filter((section) => ["lesson_flow", "guided_activity", "discussion_prompt"].includes(section.sectionType));
-  const followUpSections = sections.filter((section) => ["reflection", "extension", "differentiation"].includes(section.sectionType));
-  const assessmentGuidanceSections = sections.filter((section) => section.sectionType === "assessment_guidance");
-  const groupedSectionIds = new Set(
-    [...overviewSections, ...beforeLessonSections, ...lessonFlowSections, ...followUpSections, ...assessmentGuidanceSections].map((section) => section.id)
+  const beforeLessonSections = sections.filter((section) => sectionHasType(section, ["teacher_script", "teacher_prep", "materials", "resources", "tool_platform_setup"]));
+  const safetySections = sections.filter((section) => sectionHasType(section, ["safety_policy_notes", "data_privacy_setup", "movement_play_notes", "academic_integrity_note", "ai_use_disclosure"]));
+  const teachingFlowSections = sections.filter((section) =>
+    sectionHasType(section, ["hook_opening", "lesson_flow", "guided_activity", "discussion_prompt", "worked_example", "reflection", "closure"])
   );
-  const otherSections = sections.filter((section) => !groupedSectionIds.has(section.id));
+  const expectedResponseSections = sections.filter((section) => sectionHasType(section, ["misconceptions_pitfalls", "expected_responses"]));
+  const assessmentGuidanceSections = sections.filter((section) => section.sectionType === "assessment_guidance");
+  const differentiationSections = sections.filter((section) => sectionHasType(section, ["differentiation", "accessibility", "extension"]));
+  const localizationSections = sections.filter((section) => sectionHasType(section, ["mena_contextualization", "language_integration"]));
+  const familySections = sections.filter((section) => section.sectionType === "family_home_connection");
   const assessmentResult = await getK6ClassLessonAssessment(classId, lessonId);
   const existingAssessment = assessmentResult.data;
   const message = assessmentMessage(assessment);
   const isK6TeacherLed = classInfo?.gradeBand === "k_to_6" && classInfo.deliveryMode === "teacher_led";
   const firstSmartboardActivity = smartboardActivities[0];
+  const lookForItems = assessmentLookFors(assessmentGuidanceSections, assessmentTemplates);
+  const mainActivity = mainActivityLabel(lesson, activities);
+  const currentToolUse = toolUseLabel(lesson, Boolean(firstSmartboardActivity));
+  const revisitText = revisitGuidance(assessmentGuidanceSections);
   const objectiveMet = existingAssessment?.objectiveMet ?? "partly";
   const activityCompleted = existingAssessment?.activityCompleted ?? "partly";
   const studentsExplainedThinking = existingAssessment?.studentsExplainedThinking ?? "partly";
@@ -415,31 +1083,56 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
   if (!classInfo) {
     return (
       <Layout>
-        <PageHeader description="The requested class is not available for this teacher workspace." eyebrow="Teacher workspace" title="Class not found." />
         <DashboardCard description="Return to your class list and open an assigned K to Grade 6 class." title="Class unavailable" />
       </Layout>
     );
   }
 
+  if (filteredOutContentCount > 0) {
+    console.warn(
+      `[CONNECTED MENA] Filtered ${filteredOutContentCount} legacy/demo curriculum item(s) from teacher display for ${lesson?.displayCode ?? lesson?.lessonCode ?? lessonId}.`
+    );
+  }
+
   return (
     <Layout>
-      <PageHeader
-        actions={
-          <>
+      <div className="space-y-5" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <header className="rounded-md border border-[#dde3dc] bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#116466]">{lesson?.displayCode ?? lesson?.lessonCode ?? "Lesson"}</p>
+            <h1 className="mt-1 text-[34px] font-semibold leading-tight tracking-normal text-[#17211c]">{cleanTeacherText(lesson?.title) || "Lesson not found"}</h1>
+            <p className="mt-2 max-w-3xl text-base leading-7 text-[#42514a]">{lessonPromise(lesson)}</p>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#66746d]">
+              <span>{unitLabel(lesson)}</span>
+              <span>{lesson?.durationMinutes ?? lesson?.estimatedMinutes ?? "Not set"} minutes</span>
+              <span>{currentToolUse}</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <Button href={`/teacher/classes/${classId}?${teacherQuery}`} icon={<ArrowLeft aria-hidden="true" className="h-4 w-4" />} variant="secondary">
-              Class
+              Back to Class
+            </Button>
+            <Button href={`/teacher/classes/${classId}/lessons/${lessonId}/guide?${teacherQuery}`} variant="secondary">
+              View Teacher Guide PDF
             </Button>
             {firstSmartboardActivity ? (
               <Button href={`/teacher/smartboard/${firstSmartboardActivity.id}?classId=${encodeURIComponent(classId)}&lessonId=${encodeURIComponent(lessonId)}`} icon={<MonitorUp aria-hidden="true" className="h-4 w-4" />}>
-                Smartboard
+                Board Extension
               </Button>
             ) : null}
-          </>
-        }
-        description={lesson?.summary ?? "Lesson materials are not available for this class yet."}
-        eyebrow={classInfo ? `${classInfo.name} - ${GRADE_BAND_LABELS[classInfo.gradeBand]} - ${DELIVERY_MODE_LABELS[classInfo.deliveryMode]}` : "Teacher workspace"}
-        title={lesson?.title ?? "Lesson not found"}
-      />
+          </div>
+        </div>
+      </header>
+
+      <nav className="sticky top-3 z-10 rounded-md border border-[#dde3dc] bg-white/95 p-2 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap gap-2 text-sm font-semibold">
+          <a className="rounded-md bg-[#116466] px-4 py-2 text-white" href="#teach-the-lesson">Teach</a>
+          <a className="rounded-md px-4 py-2 text-[#42514a] hover:bg-[#edf2ee] hover:text-[#17211c]" href="#before-class">Prepare</a>
+          <a className="rounded-md px-4 py-2 text-[#42514a] hover:bg-[#edf2ee] hover:text-[#17211c]" href="#reflect">Reflect</a>
+          <a className="rounded-md px-4 py-2 text-[#42514a] hover:bg-[#edf2ee] hover:text-[#17211c]" href={`/teacher/classes/${classId}/lessons/${lessonId}/guide?${teacherQuery}`}>Teacher Guide PDF</a>
+        </div>
+      </nav>
 
       {message ? (
         <div className="rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-4 py-3 text-sm font-semibold text-[#0b4d4f]">{message}</div>
@@ -459,149 +1152,98 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
         />
       ) : null}
 
-      <section className="space-y-6">
-        <DashboardCard eyebrow={lesson?.displayCode ?? lesson?.lessonCode ?? "lesson"} title="1. Lesson Overview">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <section className="space-y-5">
+        <TeacherMoment defaultOpen description="Follow this path during classroom delivery." id="teach-the-lesson" title="Teach">
+          <div className="space-y-5">
+            <TeachingPath
+              differentiationSections={differentiationSections}
+              expectedResponseSections={expectedResponseSections}
+              localizationSections={localizationSections}
+              sections={teachingFlowSections}
+            />
+            {firstSmartboardActivity ? (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-[#17211c]">Optional Board Extension</h3>
+                <BoardExtensionCard activity={firstSmartboardActivity} classId={classId} lessonId={lessonId} />
+              </div>
+            ) : null}
+          </div>
+        </TeacherMoment>
+
+        <TeacherMoment description="Print, set up, and prepare what you need before students begin." id="before-class" title="Prepare">
+          <div className="space-y-5">
             <div className="space-y-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">Essential question</p>
-                <p className="mt-2 text-sm leading-6 text-[#42514a]">{lesson?.essentialQuestion ?? "No essential question has been added yet."}</p>
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">Learning objectives</p>
-                <p className="mt-2 text-sm leading-6 text-[#42514a]">{lesson?.learningObjectives ?? "No learning objectives have been added yet."}</p>
-              </div>
-              {overviewSections.length > 0 ? (
-                <div className="grid gap-3">
-                  {overviewSections.map((section) => (
-                    <LessonSectionCard key={section.id} section={section} />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="grid gap-3 rounded-md border border-[#dde3dc] bg-[#fbfcfa] p-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">Duration</p>
-                <p className="mt-1 text-sm leading-6 text-[#42514a]">{lesson?.durationMinutes ?? lesson?.estimatedMinutes ?? "Not set"} minutes</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">Prepare</p>
+                <p className="mt-2 text-sm leading-6 text-[#42514a]">{cleanTeacherText(lesson?.teacherPrepNotes ?? lesson?.materialsNeeded) || "No preparation notes have been added yet."}</p>
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">Materials</p>
-                <p className="mt-1 text-sm leading-6 text-[#42514a]">{lesson?.materialsNeeded ?? "No materials list has been added yet."}</p>
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">Vocabulary</p>
-                <p className="mt-1 text-sm leading-6 text-[#42514a]">{lesson?.vocabulary ?? "No vocabulary has been added yet."}</p>
+                <p className="mt-2 text-sm leading-6 text-[#42514a]">{cleanTeacherText(lesson?.materialsNeeded) || "Materials will appear here when added."}</p>
               </div>
             </div>
-          </div>
-        </DashboardCard>
 
-        <DashboardCard eyebrow="teacher prep" title="2. Before the Lesson">
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">Teacher prep</p>
-              <p className="mt-2 text-sm leading-6 text-[#42514a]">{lesson?.teacherPrepNotes ?? "No teacher prep notes have been added yet."}</p>
-            </div>
-            {beforeLessonSections.length > 0 ? (
-              <div className="grid gap-3">
-                {beforeLessonSections.map((section) => (
-                  <LessonSectionCard key={section.id} section={section} />
-                ))}
-              </div>
+            {beforeLessonSections.length > 0 ? <SectionList sections={beforeLessonSections} /> : null}
+            {safetySections.length > 0 ? (
+              <TeacherSupportCallout title="Safety and Setup">
+                <SectionList sections={safetySections} />
+              </TeacherSupportCallout>
             ) : null}
-            {platformResources.length > 0 ? (
-              <div className="grid gap-3">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#116466]">Protected teacher resources</p>
-                {platformResources.map((resource) => (
-                  <ResourceCard key={resource.id} resource={resource} />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </DashboardCard>
-
-        <DashboardCard eyebrow="teaching sequence" title="3. Lesson Flow">
-          <div className="grid gap-3">
-            {lessonFlowSections.length > 0 ? (
-              lessonFlowSections.map((section) => <LessonSectionCard key={section.id} section={section} />)
-            ) : (
-              <EmptyState>No teaching sequence has been added yet.</EmptyState>
-            )}
-          </div>
-        </DashboardCard>
-
-        <DashboardCard eyebrow="class activity" title="4. Smartboard Activity">
-          <div className="grid gap-3">
-            {smartboardActivities.length > 0 ? (
-              smartboardActivities.map((activity) => <ActivityCard activity={activity} classId={classId} key={activity.id} lessonId={lessonId} />)
-            ) : activities.length > 0 ? (
-              activities.map((activity) => <ActivityCard activity={activity} classId={classId} key={activity.id} lessonId={lessonId} />)
-            ) : (
-              <EmptyState>No smartboard activity has been added yet.</EmptyState>
-            )}
-          </div>
-        </DashboardCard>
-
-        {followUpSections.length > 0 || otherSections.length > 0 ? (
-          <DashboardCard eyebrow="after activity" title="5. Reflection, Extension, and Support">
-            <div className="grid gap-3">
-              {[...followUpSections, ...otherSections].map((section) => (
-                <LessonSectionCard key={section.id} section={section} />
-              ))}
-            </div>
-          </DashboardCard>
-        ) : null}
-
-        <DashboardCard eyebrow="classroom materials" title="6. Printable Classroom Materials">
-          <div className="grid gap-3">
             {printableResources.length > 0 ? (
-              printableResources.map((resource) => <ResourceCard key={resource.id} resource={resource} />)
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-[#17211c]">Printables and Resources</h3>
+                <CompactResourceList resources={[...printableResources, ...teacherResources, ...downloadableResources]} />
+              </div>
+            ) : teacherResources.length > 0 || downloadableResources.length > 0 ? (
+              <CompactResourceList resources={[...teacherResources, ...downloadableResources]} />
             ) : (
-              <EmptyState>No printable classroom materials have been marked for this lesson.</EmptyState>
+              <EmptyState>No printables or teacher resources have been attached yet.</EmptyState>
             )}
           </div>
-        </DashboardCard>
+        </TeacherMoment>
 
-        {downloadableResources.length > 0 ? (
-          <DashboardCard eyebrow="classroom files" title="Downloadable Resources">
-            <div className="grid gap-3">
-              {downloadableResources.map((resource) => (
-                <ResourceCard key={resource.id} resource={resource} />
-              ))}
+        <TeacherMoment description="Capture what the class understood and what to revisit next." id="reflect" title="Reflect">
+          <div className="space-y-4">
+            <div className="rounded-md border border-[#dde3dc] bg-white p-4">
+              <h3 className="text-lg font-semibold text-[#17211c]">Assessment look-fors</h3>
+              {lookForItems.length > 0 || criteriaFromLesson(lesson?.successCriteriaJson).length > 0 ? (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm leading-6 text-[#42514a]">
+                  {[...lookForItems, ...criteriaFromLesson(lesson?.successCriteriaJson)].slice(0, 5).map((item) => (
+                    <li key={item}>{cleanTeacherText(item)}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-[#66746d]">Assessment look-fors will appear here when added.</p>
+              )}
+              {revisitText ? (
+                <p className="mt-4 rounded-md bg-[#fbfcfa] p-3 text-sm leading-6 text-[#42514a]">
+                  <span className="font-semibold text-[#17211c]">If many students struggle:</span> {revisitText}
+                </p>
+              ) : null}
             </div>
-          </DashboardCard>
-        ) : null}
-
-        <DashboardCard eyebrow="assessment guidance" title="7. Assessment Guidance">
-          <div className="grid gap-3">
-            {assessmentGuidanceSections.length > 0 ? (
-              assessmentGuidanceSections.map((section) => <LessonSectionCard key={section.id} section={section} />)
+            {familySections.length > 0 ? (
+              <TeacherSupportCallout title="Family Connection">
+                <SectionList sections={familySections} />
+              </TeacherSupportCallout>
             ) : null}
-            {assessmentTemplates.length > 0 ? (
-              assessmentTemplates.map((template) => <AssessmentTemplateCard key={template.id} template={template} />)
-            ) : assessmentGuidanceSections.length === 0 ? (
-              <EmptyState>No assessment guidance or template has been attached yet. The class-level assessment form is still available below.</EmptyState>
-            ) : null}
-          </div>
-        </DashboardCard>
-
-        <DashboardCard eyebrow="class-level assessment" title="8. Class Assessment Form">
-          {existingAssessment ? (
-            <div className="mb-4 rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-4 py-3 text-sm text-[#0b4d4f]">
-              Current assessment loaded. Last saved {new Date(existingAssessment.updatedAt).toLocaleString()}.
-            </div>
-          ) : (
-            <div className="mb-4 rounded-md border border-[#dde3dc] bg-[#fbfcfa] px-4 py-3 text-sm text-[#66746d]">
-              No saved assessment yet for this class and lesson.
-            </div>
-          )}
-          <form action={submitK6AssessmentAction} className="space-y-4">
+            <div className="rounded-md border border-[#dde3dc] bg-white p-4" id="class-reflection">
+              <h3 className="text-lg font-semibold text-[#17211c]">Class Reflection / Assessment Form</h3>
+              {existingAssessment ? (
+                <div className="mt-4 rounded-md border border-[#b9d8c8] bg-[#edf8f1] px-4 py-3 text-sm text-[#0b4d4f]">
+                  Current assessment loaded. Last saved {new Date(existingAssessment.updatedAt).toLocaleString()}.
+                </div>
+              ) : (
+                <div className="mt-4 rounded-md border border-[#dde3dc] bg-[#fbfcfa] px-4 py-3 text-sm text-[#66746d]">
+                  No saved assessment yet for this class and lesson.
+                </div>
+              )}
+          <form action={submitK6AssessmentAction} className="mt-4 space-y-4">
             <input name="classId" type="hidden" value={classId} />
             <input name="lessonId" type="hidden" value={lessonId} />
             <input name="teacherId" type="hidden" value={selectedTeacherProfileId} />
             <input name="teacherProfileId" type="hidden" value={selectedTeacherProfileId} />
 
-            <ResponseGroup legend="Objective met" name="objectiveMet" value={objectiveMet} />
+            <ResponseGroup legend="Class understanding" name="objectiveMet" value={objectiveMet} />
             <ResponseGroup legend="Activity completed" name="activityCompleted" value={activityCompleted} />
             <ResponseGroup legend="Students explained their thinking" name="studentsExplainedThinking" value={studentsExplainedThinking} />
 
@@ -643,8 +1285,12 @@ export default async function ClassLessonPage({ params, searchParams }: ClassLes
               {existingAssessment ? "Update class assessment" : "Save class assessment"}
             </Button>
           </form>
-        </DashboardCard>
+            </div>
+          </div>
+        </TeacherMoment>
+
       </section>
+      </div>
     </Layout>
   );
 }
