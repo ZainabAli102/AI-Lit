@@ -3,6 +3,7 @@ import { Layout } from "@/components/Layout";
 import { MatchingCardsSmartboard } from "@/components/MatchingCardsSmartboard";
 import { PageHeader } from "@/components/PageHeader";
 import { PatternSpottingSmartboard, type PatternRound } from "@/components/PatternSpottingSmartboard";
+import { ScenarioRevealSmartboard, type ScenarioRevealRound } from "@/components/ScenarioRevealSmartboard";
 import { SortingCardsSmartboard } from "@/components/SortingCardsSmartboard";
 import { getSmartboardActivityResult, type SmartboardActivity } from "@/lib/smartboard-data";
 
@@ -22,12 +23,21 @@ type SortingCard = {
   id: string;
   label: string;
   correctCategory: string;
+  confidence?: string;
+};
+
+type SortingCategory = {
+  id: string;
+  label: string;
+  sharedFeature?: string;
 };
 
 type SortingCardsConfig = {
   prompt: string;
-  categories: string[];
+  categories: SortingCategory[];
   cards: SortingCard[];
+  targetCategory?: string;
+  accessibilityNotes: string[];
 };
 
 type MatchItem = {
@@ -55,6 +65,12 @@ type PatternSpottingConfig = {
   rounds: PatternRound[];
 };
 
+type ScenarioRevealConfig = {
+  prompt: string;
+  rounds: ScenarioRevealRound[];
+  accessibilityNotes: string[];
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -63,15 +79,80 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 }
 
+function stringFrom(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function accessibilityNotes(value: unknown): string[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  return Object.entries(value).flatMap(([key, entry]) => {
+    const label = key
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+
+    if (typeof entry === "string" && entry.trim()) {
+      return [`${label}: ${entry.trim()}`];
+    }
+
+    if (Array.isArray(entry)) {
+      const values = entry.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+      return values.length > 0 ? [`${label}: ${values.join(", ")}`] : [];
+    }
+
+    if (entry === true) {
+      return [label];
+    }
+
+    return [];
+  });
+}
+
+function parseSortingCategories(value: unknown): SortingCategory[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((category, index): SortingCategory | null => {
+      if (typeof category === "string" && category.trim()) {
+        return { id: category.trim(), label: category.trim() };
+      }
+
+      if (!isRecord(category)) {
+        return null;
+      }
+
+      const label = stringFrom(category.label) ?? stringFrom(category.title) ?? stringFrom(category.name);
+      const id = stringFrom(category.id) ?? label ?? `category-${index + 1}`;
+
+      if (!label) {
+        return null;
+      }
+
+      return {
+        id,
+        label,
+        sharedFeature: stringFrom(category.shared_feature ?? category.sharedFeature) ?? undefined
+      };
+    })
+    .filter((category): category is SortingCategory => category !== null);
+}
+
 function parseSortingCardsConfig(activity: SmartboardActivity): SortingCardsConfig | null {
   if (!isRecord(activity.activityJson)) {
     return null;
   }
 
-  const prompt = typeof activity.activityJson.prompt === "string" ? activity.activityJson.prompt : "Sort these examples into the best category.";
-  const categories = Array.isArray(activity.activityJson.categories)
-    ? activity.activityJson.categories.filter((category): category is string => typeof category === "string" && category.trim().length > 0)
-    : [];
+  const targetCategory = stringFrom(activity.activityJson.target_category ?? activity.activityJson.targetCategory) ?? undefined;
+  const basePrompt = typeof activity.activityJson.prompt === "string" ? activity.activityJson.prompt : "Sort these examples into the best category.";
+  const prompt = targetCategory ? `${basePrompt} Sort examples and non-examples of ${targetCategory}.` : basePrompt;
+  const categories = parseSortingCategories(activity.activityJson.categories);
+  const categoryIds = new Set(categories.map((category) => category.id));
+  const categoryLabels = new Map(categories.map((category) => [category.label, category.id]));
   const cards: SortingCard[] = [];
 
   if (Array.isArray(activity.activityJson.cards)) {
@@ -80,8 +161,9 @@ function parseSortingCardsConfig(activity: SmartboardActivity): SortingCardsConf
         return;
       }
 
-      const label = typeof card.label === "string" ? card.label : null;
-      const correctCategory = typeof card.correctCategory === "string" ? card.correctCategory : null;
+      const label = stringFrom(card.label);
+      const rawCorrectCategory = stringFrom(card.correctCategory ?? card.correct_category);
+      const correctCategory = rawCorrectCategory ? (categoryIds.has(rawCorrectCategory) ? rawCorrectCategory : categoryLabels.get(rawCorrectCategory) ?? rawCorrectCategory) : null;
 
       if (!label || !correctCategory) {
         return;
@@ -90,7 +172,8 @@ function parseSortingCardsConfig(activity: SmartboardActivity): SortingCardsConf
       cards.push({
         id: `${label}-${index}`,
         label,
-        correctCategory
+        correctCategory,
+        confidence: stringFrom(card.confidence) ?? undefined
       });
     });
   }
@@ -102,7 +185,9 @@ function parseSortingCardsConfig(activity: SmartboardActivity): SortingCardsConf
   return {
     prompt,
     categories,
-    cards
+    cards,
+    targetCategory,
+    accessibilityNotes: accessibilityNotes(activity.activityJson.accessibility)
   };
 }
 
@@ -223,6 +308,52 @@ function parsePatternSpottingConfig(activity: SmartboardActivity): PatternSpotti
   };
 }
 
+function parseScenarioRevealRound(value: unknown, index: number): ScenarioRevealRound | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const scenario = stringFrom(value.scenario);
+  const prompt = stringFrom(value.prompt);
+  const reveal = stringFrom(value.reveal);
+
+  if (!scenario || !prompt || !reveal) {
+    return null;
+  }
+
+  return {
+    id: stringFrom(value.id) ?? `round-${index + 1}`,
+    scenario,
+    prompt,
+    reveal,
+    discussion: stringFrom(value.discussion) ?? undefined,
+    confidence: stringFrom(value.confidence) ?? undefined
+  };
+}
+
+function parseScenarioRevealConfig(activity: SmartboardActivity): ScenarioRevealConfig | null {
+  if (!isRecord(activity.activityJson)) {
+    return null;
+  }
+
+  const prompt = stringFrom(activity.activityJson.prompt) ?? "Predict what will happen, then reveal the result.";
+  const rounds = Array.isArray(activity.activityJson.scenarios)
+    ? activity.activityJson.scenarios.map(parseScenarioRevealRound).filter((round): round is ScenarioRevealRound => round !== null)
+    : [];
+  const fallbackRound = parseScenarioRevealRound(activity.activityJson, 0);
+  const resolvedRounds = rounds.length > 0 ? rounds : fallbackRound ? [fallbackRound] : [];
+
+  if (resolvedRounds.length === 0) {
+    return null;
+  }
+
+  return {
+    prompt,
+    rounds: resolvedRounds,
+    accessibilityNotes: accessibilityNotes(activity.activityJson.accessibility)
+  };
+}
+
 export default async function SmartboardPage({ params, searchParams }: SmartboardPageProps) {
   const { activityId } = await params;
   const { classId, lessonId } = await searchParams;
@@ -252,12 +383,35 @@ export default async function SmartboardPage({ params, searchParams }: Smartboar
     );
   }
 
-  if (activity.activityType !== "sorting_cards" && activity.activityType !== "matching_cards" && activity.activityType !== "pattern_spotting") {
+  if (activity.activityType !== "sorting_cards" && activity.activityType !== "matching_cards" && activity.activityType !== "pattern_spotting" && activity.activityType !== "scenario_reveal") {
     return (
       <Layout>
         <PageHeader description="This smartboard activity type is not available in the first MVP renderer." eyebrow="Teacher workspace" title={activity.title} />
-        <DashboardCard description="The current interactive smartboard MVP supports sorting cards, matching cards, and pattern spotting." title="Activity type coming later" />
+        <DashboardCard description="The current interactive smartboard MVP supports sorting cards, matching cards, pattern spotting, and scenario reveal." title="Activity type coming later" />
       </Layout>
+    );
+  }
+
+  if (activity.activityType === "scenario_reveal") {
+    const scenarioConfig = parseScenarioRevealConfig(activity);
+
+    if (!scenarioConfig) {
+      return (
+        <Layout>
+          <PageHeader description="This scenario reveal activity is missing a scenario, prompt, or reveal." eyebrow="Teacher workspace" title={activity.title} />
+          <DashboardCard description="Ask the curriculum admin to review the activity content." title="Activity content unavailable" />
+        </Layout>
+      );
+    }
+
+    return (
+      <ScenarioRevealSmartboard
+        accessibilityNotes={scenarioConfig.accessibilityNotes}
+        prompt={scenarioConfig.prompt}
+        returnHref={returnHref}
+        returnLabel={returnLabel}
+        rounds={scenarioConfig.rounds}
+      />
     );
   }
 
@@ -321,5 +475,15 @@ export default async function SmartboardPage({ params, searchParams }: Smartboar
     );
   }
 
-  return <SortingCardsSmartboard cards={sortingConfig.cards} categories={sortingConfig.categories} prompt={sortingConfig.prompt} returnHref={returnHref} returnLabel={returnLabel} />;
+  return (
+    <SortingCardsSmartboard
+      accessibilityNotes={sortingConfig.accessibilityNotes}
+      cards={sortingConfig.cards}
+      categories={sortingConfig.categories}
+      prompt={sortingConfig.prompt}
+      returnHref={returnHref}
+      returnLabel={returnLabel}
+      targetCategory={sortingConfig.targetCategory}
+    />
+  );
 }

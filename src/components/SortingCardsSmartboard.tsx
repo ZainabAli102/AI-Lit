@@ -7,12 +7,21 @@ type SortingCard = {
   id: string;
   label: string;
   correctCategory: string;
+  confidence?: string;
+};
+
+type SortingCategory = {
+  id: string;
+  label: string;
+  sharedFeature?: string;
 };
 
 type SortingCardsSmartboardProps = {
   prompt: string;
-  categories: string[];
+  categories: SortingCategory[];
   cards: SortingCard[];
+  targetCategory?: string;
+  accessibilityNotes?: string[];
   returnHref: string;
   returnLabel: string;
 };
@@ -78,7 +87,7 @@ function cardBaseClasses(isSelected: boolean) {
   ].join(" ");
 }
 
-export function SortingCardsSmartboard({ prompt, categories, cards, returnHref, returnLabel }: SortingCardsSmartboardProps) {
+export function SortingCardsSmartboard({ accessibilityNotes = [], prompt, categories, cards, returnHref, returnLabel, targetCategory }: SortingCardsSmartboardProps) {
   const [assignments, setAssignments] = useState<Assignments>(() => buildInitialAssignments(cards));
   const [selectedCardId, setSelectedCardId] = useState<string | null>(cards[0]?.id ?? null);
   const [checked, setChecked] = useState(false);
@@ -89,7 +98,7 @@ export function SortingCardsSmartboard({ prompt, categories, cards, returnHref, 
     () =>
       categories.map((category) => ({
         category,
-        cards: cards.filter((card) => assignments[card.id] === category)
+        cards: cards.filter((card) => assignments[card.id] === category.id)
       })),
     [assignments, cards, categories]
   );
@@ -129,7 +138,7 @@ export function SortingCardsSmartboard({ prompt, categories, cards, returnHref, 
 
   function categoryAtPoint(x: number, y: number) {
     for (const category of categories) {
-      const element = categoryRefs.current.get(category);
+      const element = categoryRefs.current.get(category.id);
 
       if (!element) {
         continue;
@@ -138,7 +147,7 @@ export function SortingCardsSmartboard({ prompt, categories, cards, returnHref, 
       const rect = element.getBoundingClientRect();
 
       if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-        return category;
+        return category.id;
       }
     }
 
@@ -219,6 +228,7 @@ export function SortingCardsSmartboard({ prompt, categories, cards, returnHref, 
             {assignments[card.id] === card.correctCategory ? "Looks right" : "Review together"}
           </span>
         ) : null}
+        {!checked && card.confidence ? <span className="mt-2 block text-base font-semibold text-[#66746d]">Confidence: {card.confidence}</span> : null}
       </button>
     );
   }
@@ -237,7 +247,14 @@ export function SortingCardsSmartboard({ prompt, categories, cards, returnHref, 
             </Link>
           </div>
           <p className="mt-4 max-w-4xl text-2xl leading-9 text-[#42514a]">{prompt}</p>
+          {targetCategory ? <p className="mt-3 text-lg font-semibold text-[#116466]">Focus: {targetCategory}</p> : null}
         </section>
+
+        {accessibilityNotes.length > 0 ? (
+          <section className="rounded-2xl border border-[#cfe0d8] bg-[#f8fcfa] p-4 text-lg leading-7 text-[#42514a]">
+            <span className="font-semibold text-[#17211c]">Teacher support:</span> {accessibilityNotes.join(" ")}
+          </section>
+        ) : null}
 
         <section className="grid gap-4 rounded-2xl border border-[#d6ded8] bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -297,31 +314,34 @@ export function SortingCardsSmartboard({ prompt, categories, cards, returnHref, 
           <div className="grid gap-4 xl:grid-cols-3">
             {cardsByCategory.map(({ category, cards: categoryCards }, index) => {
               const palette = paletteForIndex(index);
-              const isDragTarget = dragState?.overCategory === category;
+              const isDragTarget = dragState?.overCategory === category.id;
 
               return (
               <section
                 className={`flex min-h-80 flex-col rounded-2xl border-2 p-5 shadow-sm transition ${palette.zone} ${
                   isDragTarget ? "scale-[1.015] ring-4 ring-[#116466]/25" : ""
                 }`}
-                key={category}
+                key={category.id}
                 ref={(element) => {
                   if (element) {
-                    categoryRefs.current.set(category, element);
+                    categoryRefs.current.set(category.id, element);
                   } else {
-                    categoryRefs.current.delete(category);
+                    categoryRefs.current.delete(category.id);
                   }
                 }}
               >
                 <button
                   className={`min-h-16 rounded-xl px-4 text-xl font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-45 ${palette.button}`}
                   disabled={!selectedCardId}
-                  onClick={() => moveSelectedCard(category)}
+                  onClick={() => moveSelectedCard(category.id)}
                   type="button"
                 >
-                  Move selected to {category}
+                  Move selected to {category.label}
                 </button>
-                <h2 className={`mt-5 rounded-xl px-4 py-3 text-3xl font-semibold ${palette.header}`}>{category}</h2>
+                <div className={`mt-5 rounded-xl px-4 py-3 ${palette.header}`}>
+                  <h2 className="text-3xl font-semibold">{category.label}</h2>
+                  {category.sharedFeature ? <p className="mt-2 text-base font-semibold opacity-90">Shared feature: {category.sharedFeature}</p> : null}
+                </div>
                 <div className="mt-4 grid flex-1 content-start gap-3">
                   {categoryCards.length > 0 ? (
                     categoryCards.map((card) => renderCard(card))

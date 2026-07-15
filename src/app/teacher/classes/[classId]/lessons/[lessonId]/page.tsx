@@ -426,12 +426,29 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
   }
 
   const prompt = typeof value.prompt === "string" ? value.prompt : null;
+  const rawTargetCategory = value.target_category ?? value.targetCategory;
+  const targetCategory = typeof rawTargetCategory === "string" ? rawTargetCategory : null;
   const categories = stringArray(value.categories);
   const sampleResponses = stringArray(value.sampleResponses);
-  const scenarios = stringArray(value.scenarios);
+  const scenarioStrings = stringArray(value.scenarios);
+  const scenarioObjects = Array.isArray(value.scenarios) ? value.scenarios.filter(isRecord) : [];
   const cards = Array.isArray(value.cards) ? value.cards.filter(isRecord) : [];
   const patterns = Array.isArray(value.patterns) ? value.patterns.filter(isRecord) : [];
   const rounds = Array.isArray(value.rounds) ? value.rounds.filter(isRecord) : [];
+  const accessibilityNotes = isRecord(value.accessibility)
+    ? Object.entries(value.accessibility)
+        .flatMap(([key, entry]) => {
+          const label = resourceTypeLabel(key);
+          if (typeof entry === "string" && entry.trim()) {
+            return [`${label}: ${entry}`];
+          }
+          if (Array.isArray(entry)) {
+            const values = entry.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+            return values.length > 0 ? [`${label}: ${values.join(", ")}`] : [];
+          }
+          return entry === true ? [label] : [];
+        })
+    : [];
 
   return (
     <div className="mt-3 space-y-3 rounded-md bg-white p-3 text-sm leading-6 text-[#42514a]">
@@ -452,6 +469,11 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
           </div>
         </div>
       ) : null}
+      {targetCategory ? (
+        <p>
+          <span className="font-semibold text-[#17211c]">Focus:</span> Sort examples and non-examples of {cleanTeacherText(targetCategory)}.
+        </p>
+      ) : null}
       {cards.length > 0 ? (
         <div>
           <p className="font-semibold text-[#17211c]">{activityType === "sorting_cards" ? "Sorting cards" : "Cards"}</p>
@@ -459,7 +481,13 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
             {cards.map((card, index) => {
               const label = typeof card.label === "string" ? card.label : `Card ${index + 1}`;
               const correctCategory = typeof card.correctCategory === "string" ? card.correctCategory : null;
-              return <li key={`${label}-${index}`}>{correctCategory ? `${cleanTeacherText(label)} to ${cleanTeacherText(correctCategory)}` : cleanTeacherText(label)}</li>;
+              const confidence = typeof card.confidence === "string" ? card.confidence : null;
+              return (
+                <li key={`${label}-${index}`}>
+                  {correctCategory ? `${cleanTeacherText(label)} to ${cleanTeacherText(correctCategory)}` : cleanTeacherText(label)}
+                  {confidence ? ` | Confidence: ${cleanTeacherText(confidence)}` : ""}
+                </li>
+              );
             })}
           </ul>
         </div>
@@ -495,15 +523,32 @@ function ActivityDetails({ activityType, value }: { activityType: string; value:
           </ul>
         </div>
       ) : null}
-      {scenarios.length > 0 ? (
+      {scenarioObjects.length > 0 ? (
+        <div>
+          <p className="font-semibold text-[#17211c]">Scenario reveal rounds</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {scenarioObjects.map((scenario, index) => {
+              const scenarioText = typeof scenario.scenario === "string" ? scenario.scenario : `Round ${index + 1}`;
+              const reveal = typeof scenario.reveal === "string" ? scenario.reveal : null;
+              return <li key={`${scenarioText}-${index}`}>{reveal ? `${cleanTeacherText(scenarioText)} to ${cleanTeacherText(reveal)}` : cleanTeacherText(scenarioText)}</li>;
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {scenarioStrings.length > 0 ? (
         <div>
           <p className="font-semibold text-[#17211c]">Scenario cards</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
-            {scenarios.map((scenario) => (
+            {scenarioStrings.map((scenario) => (
               <li key={scenario}>{cleanTeacherText(scenario)}</li>
             ))}
           </ul>
         </div>
+      ) : null}
+      {accessibilityNotes.length > 0 ? (
+        <p>
+          <span className="font-semibold text-[#17211c]">Teacher support:</span> {accessibilityNotes.map(cleanTeacherText).join(" ")}
+        </p>
       ) : null}
       {sampleResponses.length > 0 ? (
         <div>

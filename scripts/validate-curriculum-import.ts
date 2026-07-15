@@ -153,7 +153,38 @@ function createFileConfigs(sourceDir: string): Record<string, FileConfig> {
 
 const allowed = {
   accessType: new Set(["platform_only", "printable", "downloadable", "teacher_only", "student_visible_later"]),
-  activityType: new Set(["sorting_cards", "matching_cards", "matching", "true_false", "discussion_prompt", "pattern_recognition", "pattern_spotting", "scenario_cards", "class_poll", "reflection_prompt"]),
+  activityType: new Set([
+    "sorting_cards",
+    "matching_cards",
+    "matching",
+    "true_false",
+    "discussion_prompt",
+    "pattern_recognition",
+    "pattern_spotting",
+    "scenario_cards",
+    "scenario_reveal",
+    "class_poll",
+    "reflection_prompt",
+    "sequencing",
+    "many-to-one matching",
+    "many_to_one_matching",
+    "table",
+    "chart",
+    "reason",
+    "tricky",
+    "clearer",
+    "icon",
+    "fairness",
+    "lenses",
+    "kind_steps",
+    "fair_rule",
+    "rounds",
+    "shared_deck",
+    "printable_asset",
+    "no_single_answer",
+    "grid_hint",
+    "tray_reference"
+  ]),
   deliveryMode: new Set(["teacher_led", "student_account", "hybrid"]),
   displayMode: new Set(["inline", "print", "smartboard", "download", "link"]),
   gradeBand: new Set(["k_to_6", "grades_7_to_12"]),
@@ -356,29 +387,76 @@ function hasString(value: unknown, key: string) {
   return typeof value === "object" && value !== null && typeof (value as Record<string, unknown>)[key] === "string";
 }
 
+function hasOptionalString(value: unknown, key: string) {
+  return typeof value === "object" && value !== null && ((value as Record<string, unknown>)[key] === undefined || typeof (value as Record<string, unknown>)[key] === "string");
+}
+
+function validateOptionalV14Fields(file: CsvFile, row: CsvRow, activityJson: Record<string, unknown>, errors: ValidationError[]) {
+  if (!hasOptionalString(activityJson, "target_category")) {
+    addError(errors, file, row.rowNumber, "activity_json", "target_category must be a string when provided.");
+  }
+
+  if (activityJson.accessibility !== undefined) {
+    const accessibility = activityJson.accessibility;
+
+    if (!accessibility || typeof accessibility !== "object" || Array.isArray(accessibility)) {
+      addError(errors, file, row.rowNumber, "activity_json", "accessibility must be an object when provided.");
+    } else {
+      Object.entries(accessibility as Record<string, unknown>).forEach(([key, value]) => {
+        if (typeof value !== "string" && typeof value !== "boolean" && !Array.isArray(value)) {
+          addError(errors, file, row.rowNumber, "activity_json", `accessibility.${key} must be a string, boolean, or string array when provided.`);
+        }
+      });
+    }
+  }
+}
+
+function validateOptionalConfidence(file: CsvFile, row: CsvRow, item: unknown, pathLabel: string, errors: ValidationError[]) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return;
+  }
+
+  if (!hasOptionalString(item, "confidence")) {
+    addError(errors, file, row.rowNumber, "activity_json", `${pathLabel}.confidence must be a string when provided.`);
+  }
+}
+
 function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
   file.rows.forEach((row) => {
     const activityType = field(row, "activity_type");
     const activityJson = parseJsonField(file, row, "activity_json", errors);
 
-    if (!activityJson || typeof activityJson !== "object") {
+    if (!activityJson || typeof activityJson !== "object" || Array.isArray(activityJson)) {
       return;
     }
 
+    const activityJsonRecord = activityJson as Record<string, unknown>;
+    validateOptionalV14Fields(file, row, activityJsonRecord, errors);
+
     if (activityType === "sorting_cards") {
-      if (!hasArray(activityJson, "categories")) {
+      if (!hasArray(activityJsonRecord, "categories")) {
         addError(errors, file, row.rowNumber, "activity_json", "sorting_cards activity_json must include a categories array.");
+      } else {
+        (activityJsonRecord.categories as unknown[]).forEach((category, categoryIndex) => {
+          if (category && typeof category === "object" && !Array.isArray(category) && !hasOptionalString(category, "shared_feature")) {
+            addError(errors, file, row.rowNumber, "activity_json", `sorting_cards category ${categoryIndex + 1}.shared_feature must be a string when provided.`);
+          }
+        });
       }
 
-      if (!hasArray(activityJson, "cards")) {
+      if (!hasArray(activityJsonRecord, "cards")) {
         addError(errors, file, row.rowNumber, "activity_json", "sorting_cards activity_json must include a cards array.");
+      } else {
+        (activityJsonRecord.cards as unknown[]).forEach((card, cardIndex) => {
+          validateOptionalConfidence(file, row, card, `sorting_cards card ${cardIndex + 1}`, errors);
+        });
       }
     }
 
     if (activityType === "matching_cards") {
-      const hasLeftItems = hasArray(activityJson, "leftItems") || hasArray(activityJson, "left_items");
-      const hasRightItems = hasArray(activityJson, "rightItems") || hasArray(activityJson, "right_items");
-      const hasAnswerKey = hasArray(activityJson, "matches") || hasArray(activityJson, "answer_key");
+      const hasLeftItems = hasArray(activityJsonRecord, "leftItems") || hasArray(activityJsonRecord, "left_items");
+      const hasRightItems = hasArray(activityJsonRecord, "rightItems") || hasArray(activityJsonRecord, "right_items");
+      const hasAnswerKey = hasArray(activityJsonRecord, "matches") || hasArray(activityJsonRecord, "answer_key");
 
       if (!hasLeftItems) {
         addError(errors, file, row.rowNumber, "activity_json", "matching_cards activity_json must include leftItems or left_items.");
@@ -391,11 +469,18 @@ function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
       if (!hasAnswerKey) {
         addError(errors, file, row.rowNumber, "activity_json", "matching_cards activity_json must include matches or answer_key.");
       }
+
+      [...((activityJsonRecord.leftItems as unknown[]) ?? []), ...((activityJsonRecord.left_items as unknown[]) ?? [])].forEach((item, itemIndex) => {
+        validateOptionalConfidence(file, row, item, `matching_cards left item ${itemIndex + 1}`, errors);
+      });
+      [...((activityJsonRecord.rightItems as unknown[]) ?? []), ...((activityJsonRecord.right_items as unknown[]) ?? [])].forEach((item, itemIndex) => {
+        validateOptionalConfidence(file, row, item, `matching_cards right item ${itemIndex + 1}`, errors);
+      });
     }
 
     if (activityType === "pattern_spotting") {
-      const render = typeof (activityJson as Record<string, unknown>).render === "string" ? (activityJson as Record<string, unknown>).render : "";
-      const rounds = Array.isArray((activityJson as Record<string, unknown>).rounds) ? ((activityJson as Record<string, unknown>).rounds as unknown[]) : [];
+      const render = typeof activityJsonRecord.render === "string" ? activityJsonRecord.render : "";
+      const rounds = Array.isArray(activityJsonRecord.rounds) ? (activityJsonRecord.rounds as unknown[]) : [];
 
       if (render && render !== "color_swatches" && render !== "shapes") {
         addError(errors, file, row.rowNumber, "activity_json", "pattern_spotting render must be color_swatches or shapes.");
@@ -428,8 +513,47 @@ function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
           addError(errors, file, row.rowNumber, "activity_json", `pattern_spotting round ${roundIndex + 1} must include next.`);
         }
 
+        validateOptionalConfidence(file, row, round, `pattern_spotting round ${roundIndex + 1}`, errors);
+
         // repeating_unit is recommended for reveal highlighting, but early production rows can still validate without it.
       });
+    }
+
+    if (activityType === "scenario_reveal") {
+      const scenarios = Array.isArray(activityJsonRecord.scenarios) ? (activityJsonRecord.scenarios as unknown[]) : [];
+
+      if (scenarios.length > 0) {
+        scenarios.forEach((scenario, scenarioIndex) => {
+          if (!scenario || typeof scenario !== "object" || Array.isArray(scenario)) {
+            addError(errors, file, row.rowNumber, "activity_json", `scenario_reveal scenario ${scenarioIndex + 1} must be an object.`);
+            return;
+          }
+
+          if (!hasString(scenario, "id")) {
+            addError(errors, file, row.rowNumber, "activity_json", `scenario_reveal scenario ${scenarioIndex + 1} must include id.`);
+          }
+
+          if (!hasString(scenario, "scenario")) {
+            addError(errors, file, row.rowNumber, "activity_json", `scenario_reveal scenario ${scenarioIndex + 1} must include scenario.`);
+          }
+
+          if (!hasString(scenario, "prompt")) {
+            addError(errors, file, row.rowNumber, "activity_json", `scenario_reveal scenario ${scenarioIndex + 1} must include prompt.`);
+          }
+
+          if (!hasString(scenario, "reveal")) {
+            addError(errors, file, row.rowNumber, "activity_json", `scenario_reveal scenario ${scenarioIndex + 1} must include reveal.`);
+          }
+
+          if (!hasOptionalString(scenario, "discussion")) {
+            addError(errors, file, row.rowNumber, "activity_json", `scenario_reveal scenario ${scenarioIndex + 1}.discussion must be a string when provided.`);
+          }
+
+          validateOptionalConfidence(file, row, scenario, `scenario_reveal scenario ${scenarioIndex + 1}`, errors);
+        });
+      } else if (!hasString(activityJsonRecord, "scenario") && !hasString(activityJsonRecord, "prompt") && !hasString(activityJsonRecord, "reveal")) {
+        addError(errors, file, row.rowNumber, "activity_json", "scenario_reveal activity_json must include scenarios[] or the original scenario, prompt, and reveal fields.");
+      }
     }
   });
 }
