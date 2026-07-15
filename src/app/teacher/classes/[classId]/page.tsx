@@ -85,19 +85,30 @@ export default async function ClassDetailPage({ params, searchParams }: ClassDet
         </div>
         <div className="grid gap-4">
           {lessons.length > 0 ? (
-            lessons.map((lesson) => (
+            lessons.map((lesson) => {
+              const teacherCode = lesson.displayCode ?? lesson.lessonCode;
+
+              return (
               <DashboardCard description={lesson.summary} key={lesson.id} title={lesson.title}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm text-[#66746d]">
-                    Lesson {lesson.sequenceOrder}
-                    {lesson.estimatedMinutes ? ` - ${lesson.estimatedMinutes} minutes` : ""}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-[#66746d]">
+                    {teacherCode ? (
+                      <span className="rounded-full border border-[#cbd8d2] bg-[#f7faf8] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#116466]">
+                        {teacherCode}
+                      </span>
+                    ) : null}
+                    <span>
+                      Lesson {lesson.sequenceOrder}
+                      {lesson.estimatedMinutes ? ` - ${lesson.estimatedMinutes} minutes` : ""}
+                    </span>
+                  </div>
                   <Button href={`/teacher/classes/${classId}/lessons/${lesson.id}?${teacherQuery}`} variant="secondary">
                     Open lesson
                   </Button>
                 </div>
               </DashboardCard>
-            ))
+              );
+            })
           ) : (
             <DashboardCard description={lessonsResult.error ?? "No active K to Grade 6 lessons were returned for this class grade band. Check seeded lessons and lesson resources."} title="No lessons found" />
           )}

@@ -1200,7 +1200,7 @@ export async function saveK6ClassLessonAssessment(input: K6AssessmentInput): Pro
     };
   }
 
-  const { error } = await supabase.from("class_lesson_assessments").upsert({
+  const assessmentPayload = {
     class_id: input.classId,
     lesson_id: input.lessonId,
     teacher_id: input.teacherId,
@@ -1210,11 +1210,59 @@ export async function saveK6ClassLessonAssessment(input: K6AssessmentInput): Pro
     students_needing_support: input.studentsNeedingSupport,
     teacher_notes: input.teacherNotes,
     overall_status: input.overallStatus
-  }, {
+  };
+
+  const { error } = await supabase.from("class_lesson_assessments").upsert(assessmentPayload, {
     onConflict: "class_id,lesson_id"
   });
 
   if (error) {
+    const isMissingConflictConstraint = error.code === "42P10" || error.message.toLowerCase().includes("on conflict");
+
+    if (isMissingConflictConstraint) {
+      warnSupabaseIssue(
+        "class_lesson_assessments upsert conflict target unavailable",
+        "Falling back to update-then-insert until the class_id + lesson_id unique constraint is applied in Supabase."
+      );
+
+      const { data: existingRows, error: lookupError } = await supabase
+        .from("class_lesson_assessments")
+        .select("id")
+        .eq("class_id", input.classId)
+        .eq("lesson_id", input.lessonId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (lookupError) {
+        warnSupabaseIssue("class_lesson_assessments fallback lookup failed", lookupError.message);
+        return {
+          mode: "supabase",
+          ok: false,
+          message: lookupError.message
+        };
+      }
+
+      const existingId = existingRows?.[0]?.id;
+      const fallbackResult = existingId
+        ? await supabase.from("class_lesson_assessments").update(assessmentPayload).eq("id", existingId)
+        : await supabase.from("class_lesson_assessments").insert(assessmentPayload);
+
+      if (fallbackResult.error) {
+        warnSupabaseIssue("class_lesson_assessments fallback save failed", fallbackResult.error.message);
+        return {
+          mode: "supabase",
+          ok: false,
+          message: fallbackResult.error.message
+        };
+      }
+
+      return {
+        mode: "supabase",
+        ok: true,
+        message: "Current class lesson assessment saved with update-then-insert fallback."
+      };
+    }
+
     warnSupabaseIssue("class_lesson_assessments upsert failed", error.message);
     return {
       mode: "supabase",
