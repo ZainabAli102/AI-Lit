@@ -775,19 +775,22 @@ export async function getTeacherClassesForMvpResult(teacherProfileId = PREVIEW_T
   const schoolRows = (schools ?? []) as SchoolRow[];
   const selectedTeacher = teacherProfile as ProfileRow | null;
   const gradeBands = Array.from(new Set(classRows.map((classRow) => classRow.grade_band)));
+  const gradeLevels = Array.from(new Set(classRows.map((classRow) => classRow.grade_level)));
   const { data: lessonCountRows, error: lessonCountError } = await supabase
     .from("lessons")
-    .select("grade_band")
+    .select("grade_band,grade_level")
     .in("grade_band", gradeBands)
+    .in("grade_level", gradeLevels)
     .eq("is_active", true);
 
   if (lessonCountError) {
     warnSupabaseIssue("lesson count query failed", lessonCountError.message);
   }
 
-  const lessonCounts = new Map<GradeBand, number>();
-  ((lessonCountRows ?? []) as Pick<LessonRow, "grade_band">[]).forEach((lesson) => {
-    lessonCounts.set(lesson.grade_band, (lessonCounts.get(lesson.grade_band) ?? 0) + 1);
+  const lessonCounts = new Map<string, number>();
+  ((lessonCountRows ?? []) as Pick<LessonRow, "grade_band" | "grade_level">[]).forEach((lesson) => {
+    const key = lessonScopeKey(lesson.grade_band, lesson.grade_level);
+    lessonCounts.set(key, (lessonCounts.get(key) ?? 0) + 1);
   });
 
   return {
@@ -799,7 +802,7 @@ export async function getTeacherClassesForMvpResult(teacherProfileId = PREVIEW_T
     gradeBand: classRow.grade_band,
     deliveryMode: classRow.delivery_mode,
     teacherName: selectedTeacher?.full_name ?? "Selected teacher",
-    activeLessons: lessonCounts.get(classRow.grade_band) ?? 0
+    activeLessons: lessonCounts.get(lessonScopeKey(classRow.grade_band, classRow.grade_level)) ?? 0
     })),
     mode: "supabase",
     error: [lessonCountError ? `lesson count query failed: ${lessonCountError.message}` : null, schoolsError ? `schools query failed: ${schoolsError.message}` : null]
@@ -843,7 +846,7 @@ export async function getTeacherClassResult(classId: string): Promise<TeacherDat
   }
 
   const classRow = data as ClassRow;
-  const lessonsResult = await getLessonsForGradeBand(classRow.grade_band);
+  const lessonsResult = await getLessonsForClassScope(classRow.grade_band, classRow.grade_level);
 
   return {
     data: {
@@ -867,16 +870,20 @@ export async function getLessonsForClass(classInfo: TeacherClass): Promise<Teach
 }
 
 export async function getLessonsForClassResult(classInfo: TeacherClass): Promise<TeacherDataResult<TeacherLesson[]>> {
-  return getLessonsForGradeBand(classInfo.gradeBand);
+  return getLessonsForClassScope(classInfo.gradeBand, classInfo.gradeLevel);
 }
 
-async function getLessonsForGradeBand(gradeBand: GradeBand): Promise<TeacherDataResult<TeacherLesson[]>> {
+function lessonScopeKey(gradeBand: GradeBand, gradeLevel: number | null) {
+  return `${gradeBand}:${gradeLevel ?? "unknown"}`;
+}
+
+async function getLessonsForClassScope(gradeBand: GradeBand, gradeLevel: number): Promise<TeacherDataResult<TeacherLesson[]>> {
   const supabase = getSupabaseForTeacherLedFlow("Class lessons");
 
   if (!supabase) {
     return {
       data: previewLessons
-        .filter((lesson) => lesson.gradeBand === gradeBand)
+        .filter((lesson) => lesson.gradeBand === gradeBand && lesson.gradeLevel === gradeLevel)
         .sort((a, b) => a.sequenceOrder - b.sequenceOrder),
       mode: "local_preview",
       error: null
@@ -889,6 +896,7 @@ async function getLessonsForGradeBand(gradeBand: GradeBand): Promise<TeacherData
       "id,lesson_code,display_code,title,summary,sequence_order,estimated_minutes,duration_minutes,grade_band,grade_level,learning_objectives,essential_question,materials_needed,vocabulary,teacher_prep_notes,i_can_statement,student_challenge,student_output,success_criteria_json,alignment_json,localization_json,logistics_json,tool_use_status,content_version"
     )
     .eq("grade_band", gradeBand)
+    .eq("grade_level", gradeLevel)
     .eq("is_active", true)
     .order("sequence_order", { ascending: true });
 
@@ -897,11 +905,11 @@ async function getLessonsForGradeBand(gradeBand: GradeBand): Promise<TeacherData
     return { data: [], mode: "supabase", error: `lessons query failed: ${error.message}` };
   }
 
-  console.info(`[CONNECTED MENA] lessons query returned ${data?.length ?? 0} row(s) for grade_band ${gradeBand}.`);
+  console.info(`[CONNECTED MENA] lessons query returned ${data?.length ?? 0} row(s) for grade_band ${gradeBand}, grade_level ${gradeLevel}.`);
 
   if (!data?.length) {
-    warnSupabaseIssue("lessons returned no rows", `Seed lessons with grade_band = ${gradeBand}.`);
-    return { data: [], mode: "supabase", error: `No lessons found for grade_band ${gradeBand}.` };
+    warnSupabaseIssue("lessons returned no rows", `Seed lessons with grade_band = ${gradeBand} and grade_level = ${gradeLevel}.`);
+    return { data: [], mode: "supabase", error: `No lessons found for grade_band ${gradeBand} and grade_level ${gradeLevel}.` };
   }
 
   const lessonRows = data as LessonRow[];
