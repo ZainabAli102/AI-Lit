@@ -354,6 +354,23 @@ function validateAllowedValue(file: CsvFile, row: CsvRow, column: string, allowe
   }
 }
 
+function validateOptionalPositiveInteger(file: CsvFile, row: CsvRow, column: string, errors: ValidationError[]) {
+  const value = field(row, column);
+
+  if (!value) {
+    return;
+  }
+
+  if (!/^\d+$/.test(value)) {
+    addError(errors, file, row.rowNumber, column, `Invalid value "${value}". Leave blank or use a positive whole number.`);
+    return;
+  }
+
+  if (Number(value) <= 0) {
+    addError(errors, file, row.rowNumber, column, "Use a positive whole number, or leave this blank when minutes are not applicable.");
+  }
+}
+
 function parseJsonField(file: CsvFile, row: CsvRow, column: string, errors: ValidationError[]) {
   const value = field(row, column);
 
@@ -622,6 +639,7 @@ export function validateCurriculumImport(options: ValidateCurriculumImportOption
     validateReference(csvFiles.lessonSections, row, "lesson_code", lessonCodes, errors);
     validateAllowedValue(csvFiles.lessonSections, row, "section_type", allowed.sectionType, errors);
     validateAllowedValue(csvFiles.lessonSections, row, "access_type", allowed.accessType, errors);
+    validateOptionalPositiveInteger(csvFiles.lessonSections, row, "estimated_minutes", errors);
   });
 
   csvFiles.activities.rows.forEach((row) => {
