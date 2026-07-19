@@ -220,6 +220,7 @@ const allowed = {
 };
 
 const jsonFields = new Set(["activity_json", "criteria_json", "success_criteria_json", "alignment_json", "localization_json", "logistics_json", "metadata_json", "content_json"]);
+const smartboardPlaceholderPattern = /\b(?:example|card|item|option|sample)\s*[1-9]\d*\b|\b(?:todo|tbd|placeholder)\b/i;
 
 function parseCsv(content: string): string[][] {
   const rows: string[][] = [];
@@ -438,6 +439,43 @@ function validateOptionalConfidence(file: CsvFile, row: CsvRow, item: unknown, p
   }
 }
 
+function validateNoPlaceholderSmartboardText(file: CsvFile, row: CsvRow, pathLabel: string, value: unknown, errors: ValidationError[]) {
+  if (typeof value !== "string" || !value.trim()) {
+    return;
+  }
+
+  if (smartboardPlaceholderPattern.test(value)) {
+    addError(
+      errors,
+      file,
+      row.rowNumber,
+      "activity_json",
+      `${pathLabel} contains placeholder text "${value}". Use lesson-specific smartboard content before import.`
+    );
+  }
+}
+
+function validateRecordTextFields(file: CsvFile, row: CsvRow, pathLabel: string, item: unknown, fields: string[], errors: ValidationError[]) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return;
+  }
+
+  const record = item as Record<string, unknown>;
+  fields.forEach((fieldName) => {
+    validateNoPlaceholderSmartboardText(file, row, `${pathLabel}.${fieldName}`, record[fieldName], errors);
+  });
+}
+
+function validateStringArrayValues(file: CsvFile, row: CsvRow, pathLabel: string, value: unknown, errors: ValidationError[]) {
+  if (!Array.isArray(value)) {
+    return;
+  }
+
+  value.forEach((item, index) => {
+    validateNoPlaceholderSmartboardText(file, row, `${pathLabel}[${index + 1}]`, item, errors);
+  });
+}
+
 function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
   file.rows.forEach((row) => {
     const activityType = field(row, "activity_type");
@@ -466,6 +504,7 @@ function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
       } else {
         (activityJsonRecord.cards as unknown[]).forEach((card, cardIndex) => {
           validateOptionalConfidence(file, row, card, `sorting_cards card ${cardIndex + 1}`, errors);
+          validateRecordTextFields(file, row, `sorting_cards card ${cardIndex + 1}`, card, ["label", "text", "decision", "data"], errors);
         });
       }
     }
@@ -489,9 +528,11 @@ function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
 
       [...((activityJsonRecord.leftItems as unknown[]) ?? []), ...((activityJsonRecord.left_items as unknown[]) ?? [])].forEach((item, itemIndex) => {
         validateOptionalConfidence(file, row, item, `matching_cards left item ${itemIndex + 1}`, errors);
+        validateRecordTextFields(file, row, `matching_cards left item ${itemIndex + 1}`, item, ["label", "text"], errors);
       });
       [...((activityJsonRecord.rightItems as unknown[]) ?? []), ...((activityJsonRecord.right_items as unknown[]) ?? [])].forEach((item, itemIndex) => {
         validateOptionalConfidence(file, row, item, `matching_cards right item ${itemIndex + 1}`, errors);
+        validateRecordTextFields(file, row, `matching_cards right item ${itemIndex + 1}`, item, ["label", "text"], errors);
       });
     }
 
@@ -524,6 +565,8 @@ function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
 
         if (!hasArray(round, "options")) {
           addError(errors, file, row.rowNumber, "activity_json", `pattern_spotting round ${roundIndex + 1} must include an options array.`);
+        } else {
+          validateStringArrayValues(file, row, `pattern_spotting round ${roundIndex + 1}.options`, (round as Record<string, unknown>).options, errors);
         }
 
         if (!hasString(round, "next")) {
@@ -566,10 +609,17 @@ function validateActivityJson(file: CsvFile, errors: ValidationError[]) {
             addError(errors, file, row.rowNumber, "activity_json", `scenario_reveal scenario ${scenarioIndex + 1}.discussion must be a string when provided.`);
           }
 
+          validateRecordTextFields(file, row, `scenario_reveal scenario ${scenarioIndex + 1}`, scenario, ["scenario", "prompt", "reveal", "discussion"], errors);
+          validateStringArrayValues(file, row, `scenario_reveal scenario ${scenarioIndex + 1}.choices`, (scenario as Record<string, unknown>).choices, errors);
+          validateStringArrayValues(file, row, `scenario_reveal scenario ${scenarioIndex + 1}.options`, (scenario as Record<string, unknown>).options, errors);
           validateOptionalConfidence(file, row, scenario, `scenario_reveal scenario ${scenarioIndex + 1}`, errors);
         });
       } else if (!hasString(activityJsonRecord, "scenario") && !hasString(activityJsonRecord, "prompt") && !hasString(activityJsonRecord, "reveal")) {
         addError(errors, file, row.rowNumber, "activity_json", "scenario_reveal activity_json must include scenarios[] or the original scenario, prompt, and reveal fields.");
+      } else {
+        validateRecordTextFields(file, row, "scenario_reveal", activityJsonRecord, ["scenario", "prompt", "reveal", "discussion"], errors);
+        validateStringArrayValues(file, row, "scenario_reveal.choices", activityJsonRecord.choices, errors);
+        validateStringArrayValues(file, row, "scenario_reveal.options", activityJsonRecord.options, errors);
       }
     }
   });
